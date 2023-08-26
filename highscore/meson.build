@@ -72,7 +72,6 @@ mednafen_source = [
   '../src/compress/ZLInflateFilter.cpp',
   '../src/compress/ZstdDecompressFilter.cpp',
   '../src/cputest/cputest.c',
-  '../src/cputest/x86_cpu.c',
   '../src/demo/demo.cpp',
   '../src/hash/crc.cpp',
   '../src/hash/md5.cpp',
@@ -155,8 +154,10 @@ arch = build_machine.cpu_family()
 
 if arch == 'x86'
   mednafen_c_cpp_args += [ '-fno-pic', '-fno-pie', '-DARCH_X86=1', '-DARCH_X86_32=1' ]
+  mednafen_source += '../src/cputest/x86_cpu.c'
 elif arch == 'x86_64'
   mednafen_c_cpp_args += [ '-DARCH_X86=1', '-DARCH_X86_64=1' ]
+  mednafen_source += '../src/cputest/x86_cpu.c'
 elif arch == 'arm'
 elif arch == 'aarch64'
 else
