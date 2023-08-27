@@ -4,6 +4,7 @@
 #include "mednafen-highscore.h"
 
 #define SOUND_BUFFER_SIZE 0x10000
+#define SAMPLE_RATE 44100
 
 static MednafenCore *core;
 
@@ -111,7 +112,7 @@ mednafen_core_run_frame (HsCore *core)
 
   Mednafen::EmulateSpecStruct spec;
   spec.surface = self->surface;
-  spec.SoundRate = 48000;
+  spec.SoundRate = SAMPLE_RATE;
   spec.SoundBuf = self->sound_buffer;
   spec.LineWidths = rects;
   spec.SoundBufMaxSize = SOUND_BUFFER_SIZE;
@@ -230,7 +231,7 @@ mednafen_core_get_aspect_ratio (HsCore *core)
 static double
 mednafen_core_get_sample_rate (HsCore *core)
 {
-  return 48000;
+  return SAMPLE_RATE;
 }
 
 static int
