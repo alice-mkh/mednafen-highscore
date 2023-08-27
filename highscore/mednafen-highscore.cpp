@@ -64,10 +64,10 @@ Mednafen::MDFND_OutputNotice (MDFN_NoticeType t, const char* s) noexcept
 }
 
 static gboolean
-mednafen_core_start (HsCore      *core,
-                     const char  *rom_path,
-                     const char  *save_path,
-                     GError     **error)
+mednafen_core_load_rom (HsCore      *core,
+                        const char  *rom_path,
+                        const char  *save_path,
+                        GError     **error)
 {
   MednafenCore *self = MEDNAFEN_CORE (core);
 
@@ -265,7 +265,7 @@ mednafen_core_class_init (MednafenCoreClass *klass)
 
   object_class->finalize = mednafen_core_finalize;
 
-  core_class->start = mednafen_core_start;
+  core_class->load_rom = mednafen_core_load_rom;
   core_class->run_frame = mednafen_core_run_frame;
   core_class->reset = mednafen_core_reset;
   core_class->stop = mednafen_core_stop;
