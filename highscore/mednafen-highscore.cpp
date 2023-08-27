@@ -23,9 +23,11 @@ struct _MednafenCore
   char *rom_path;
 };
 
+static void mednafen_neo_geo_pocket_core_init (HsNeoGeoPocketCoreInterface *iface);
 static void mednafen_virtual_boy_core_init (HsVirtualBoyCoreInterface *iface);
 
 G_DEFINE_FINAL_TYPE_WITH_CODE (MednafenCore, mednafen_core, HS_TYPE_CORE,
+                               G_IMPLEMENT_INTERFACE (HS_TYPE_NEO_GEO_POCKET_CORE, mednafen_neo_geo_pocket_core_init)
                                G_IMPLEMENT_INTERFACE (HS_TYPE_VIRTUAL_BOY_CORE, mednafen_virtual_boy_core_init))
 
 void
@@ -85,7 +87,20 @@ mednafen_core_load_rom (HsCore      *core,
   Mednafen::MDFNI_SetSetting ("filesys.path_sav", "");
   Mednafen::MDFNI_SetSetting ("filesys.fname_sav", save_path);
 
-  self->game = Mednafen::MDFNI_LoadGame ("vb", &::Mednafen::NVFS, rom_path);
+  const char *platform_name;
+
+  switch (hs_core_get_platform (core)) {
+    case HS_PLATFORM_NEO_GEO_POCKET:
+      platform_name = "ngp";
+      break;
+    case HS_PLATFORM_VIRTUAL_BOY:
+      platform_name = "vb";
+      break;
+    default:
+      g_assert_not_reached ();
+  }
+
+  self->game = Mednafen::MDFNI_LoadGame (platform_name, &::Mednafen::NVFS, rom_path);
 
   self->context = hs_core_create_software_context (core, self->game->fb_width, self->game->fb_height, HS_PIXEL_FORMAT_XRGB8888_REV);
 
@@ -161,8 +176,9 @@ mednafen_core_save_data (HsCore  *core,
   Mednafen::MDFNI_SaveState (tmp_save_path, "", NULL, NULL, NULL);
 
   // Close and reopen the game
+  g_autofree char *system_name = g_strdup (self->game->shortname);
   Mednafen::MDFNI_CloseGame ();
-  self->game = Mednafen::MDFNI_LoadGame ("vb", &::Mednafen::NVFS, self->rom_path);
+  self->game = Mednafen::MDFNI_LoadGame (system_name, &::Mednafen::NVFS, self->rom_path);
 
   // Load the temporary savestate and delete the file
   Mednafen::MDFNI_LoadState (tmp_save_path, "");
@@ -208,12 +224,14 @@ mednafen_core_save_state (HsCore          *core,
 static double
 mednafen_core_get_frame_rate (HsCore *core)
 {
+  // self->game->fps / 65536.0 / 256.0
   switch (hs_core_get_platform (core)) {
+  case HS_PLATFORM_NEO_GEO_POCKET:
+    return 60.253016;
   case HS_PLATFORM_VIRTUAL_BOY:
-    return 50.27;
+    return 50.273488;
   default:
     g_assert_not_reached ();
-    // TODO
   }
 }
 
@@ -294,6 +312,36 @@ mednafen_core_init (MednafenCore *self)
 
   self->sound_buffer = g_new0 (int16_t, SOUND_BUFFER_SIZE);
 }
+
+const int ngp_button_mapping[] = {
+  0, 1, 2, 3,  // UP, DOWN, LEFT, RIGHT
+  4, 5, 6,     // A, B, OPTION
+};
+
+static void
+mednafen_neo_geo_pocket_core_button_pressed (HsNeoGeoPocketCore *core, HsNeoGeoPocketButton button)
+{
+  MednafenCore *self = MEDNAFEN_CORE (core);
+
+  *self->input_buffer[0] |= 1 << ngp_button_mapping[button];
+}
+
+static void
+mednafen_neo_geo_pocket_core_button_released (HsNeoGeoPocketCore *core, HsNeoGeoPocketButton button)
+{
+  MednafenCore *self = MEDNAFEN_CORE (core);
+
+ *self->input_buffer[0] &= ~(1 << ngp_button_mapping[button]);
+}
+
+
+static void
+mednafen_neo_geo_pocket_core_init (HsNeoGeoPocketCoreInterface *iface)
+{
+  iface->button_pressed = mednafen_neo_geo_pocket_core_button_pressed;
+  iface->button_released = mednafen_neo_geo_pocket_core_button_released;
+}
+
 
 const int vb_button_mapping[] = {
   9,  8,  7,  6,  // L_UP, L_DOWN, L_LEFT, L_RIGHT
