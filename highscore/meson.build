@@ -9,6 +9,7 @@ add_project_arguments([
   '-Wno-unused-but-set-variable',
   '-Wno-unused-variable',
   '-std=gnu99',
+  '-fvisibility=hidden',
 ], language: 'c')
 
 add_project_arguments([
@@ -18,6 +19,7 @@ add_project_arguments([
   '-Wno-unused-parameter',
   '-Wno-unused-value',
   '-Wno-unused-variable',
+  '-fvisibility=hidden',
 ], language: 'cpp')
 
 cc = meson.get_compiler('c')
