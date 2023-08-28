@@ -24,10 +24,12 @@ struct _MednafenCore
 };
 
 static void mednafen_neo_geo_pocket_core_init (HsNeoGeoPocketCoreInterface *iface);
+static void mednafen_pc_engine_core_init (HsPcEngineCoreInterface *iface);
 static void mednafen_virtual_boy_core_init (HsVirtualBoyCoreInterface *iface);
 
 G_DEFINE_FINAL_TYPE_WITH_CODE (MednafenCore, mednafen_core, HS_TYPE_CORE,
                                G_IMPLEMENT_INTERFACE (HS_TYPE_NEO_GEO_POCKET_CORE, mednafen_neo_geo_pocket_core_init)
+                               G_IMPLEMENT_INTERFACE (HS_TYPE_PC_ENGINE_CORE, mednafen_pc_engine_core_init)
                                G_IMPLEMENT_INTERFACE (HS_TYPE_VIRTUAL_BOY_CORE, mednafen_virtual_boy_core_init))
 
 void
@@ -89,15 +91,18 @@ mednafen_core_load_rom (HsCore      *core,
 
   const char *platform_name;
 
-  switch (hs_core_get_platform (core)) {
-    case HS_PLATFORM_NEO_GEO_POCKET:
-      platform_name = "ngp";
-      break;
-    case HS_PLATFORM_VIRTUAL_BOY:
-      platform_name = "vb";
-      break;
-    default:
-      g_assert_not_reached ();
+  switch (hs_platform_get_base_platform (hs_core_get_platform (core))) {
+  case HS_PLATFORM_NEO_GEO_POCKET:
+    platform_name = "ngp";
+    break;
+  case HS_PLATFORM_PC_ENGINE:
+    platform_name = "pce_fast";
+    break;
+  case HS_PLATFORM_VIRTUAL_BOY:
+    platform_name = "vb";
+    break;
+  default:
+    g_assert_not_reached ();
   }
 
   self->game = Mednafen::MDFNI_LoadGame (platform_name, &::Mednafen::NVFS, rom_path);
@@ -108,8 +113,24 @@ mednafen_core_load_rom (HsCore      *core,
                                               self->game->fb_width, self->game->fb_height, self->game->fb_width,
                                               Mednafen::MDFN_PixelFormat::ARGB32_8888);
 
-  self->game->SetInput (0, "gamepad", (uint8_t *) self->input_buffer[0]);
-  self->game->SetInput (1, "misc", (uint8_t *) self->input_buffer[1]); // TODO use this
+  switch (hs_platform_get_base_platform (hs_core_get_platform (core))) {
+  case HS_PLATFORM_NEO_GEO_POCKET:
+    self->game->SetInput (0, "gamepad", (uint8_t *) self->input_buffer[0]);
+    break;
+  case HS_PLATFORM_PC_ENGINE:
+    self->game->SetInput (0, "gamepad", (uint8_t *) self->input_buffer[0]);
+    self->game->SetInput (1, "gamepad", (uint8_t *) self->input_buffer[1]);
+    self->game->SetInput (2, "gamepad", (uint8_t *) self->input_buffer[2]);
+    self->game->SetInput (3, "gamepad", (uint8_t *) self->input_buffer[3]);
+    self->game->SetInput (4, "gamepad", (uint8_t *) self->input_buffer[4]);
+    break;
+  case HS_PLATFORM_VIRTUAL_BOY:
+    self->game->SetInput (0, "gamepad", (uint8_t *) self->input_buffer[0]);
+    self->game->SetInput (1, "misc", (uint8_t *) self->input_buffer[1]); // TODO use this
+    break;
+  default:
+    g_assert_not_reached ();
+  }
 
   self->rom_path = g_strdup (rom_path);
 
@@ -135,6 +156,15 @@ mednafen_core_run_frame (HsCore *core)
   spec.soundmultiplier = 1.0;
 
   Mednafen::MDFNI_Emulate (&spec);
+
+  int width = 0;
+  if (self->game->multires)
+    width = rects[spec.DisplayRect.y];
+  else
+    width = spec.DisplayRect.w ?: rects[spec.DisplayRect.y];
+
+  HsRectangle rect = { spec.DisplayRect.x, spec.DisplayRect.y, width, spec.DisplayRect.h };
+  hs_software_context_set_area (self->context, &rect);
 
   hs_core_play_samples (core, self->sound_buffer, spec.SoundBufSize * self->game->soundchan);
 }
@@ -225,9 +255,11 @@ static double
 mednafen_core_get_frame_rate (HsCore *core)
 {
   // self->game->fps / 65536.0 / 256.0
-  switch (hs_core_get_platform (core)) {
+  switch (hs_platform_get_base_platform (hs_core_get_platform (core))) {
   case HS_PLATFORM_NEO_GEO_POCKET:
     return 60.253016;
+  case HS_PLATFORM_PC_ENGINE:
+    return 59.826105;
   case HS_PLATFORM_VIRTUAL_BOY:
     return 50.273488;
   default:
@@ -243,7 +275,12 @@ mednafen_core_get_aspect_ratio (HsCore *core)
   if (self->game == NULL)
     return 1;
 
-  return self->game->nominal_width / (double) self->game->nominal_height;
+  switch (hs_platform_get_base_platform (hs_core_get_platform (core))) {
+  case HS_PLATFORM_PC_ENGINE:
+    return self->game->nominal_width / (double) self->game->nominal_height * 8.0 / 7.0;
+  default:
+    return self->game->nominal_width / (double) self->game->nominal_height;
+  }
 }
 
 static double
@@ -334,7 +371,6 @@ mednafen_neo_geo_pocket_core_button_released (HsNeoGeoPocketCore *core, HsNeoGeo
  *self->input_buffer[0] &= ~(1 << ngp_button_mapping[button]);
 }
 
-
 static void
 mednafen_neo_geo_pocket_core_init (HsNeoGeoPocketCoreInterface *iface)
 {
@@ -342,6 +378,67 @@ mednafen_neo_geo_pocket_core_init (HsNeoGeoPocketCoreInterface *iface)
   iface->button_released = mednafen_neo_geo_pocket_core_button_released;
 }
 
+const int pce_button_mapping[] = {
+  4, 6, 7,  5,  // UP, DOWN, LEFT, RIGHT
+  0, 1,         // I, II
+  8, 9, 10, 11, // III, IV, V, VI
+  2, 3          // SELECT, RUN
+};
+
+#define MODE_SWITCH_MASK (1 << 12)
+
+static void
+mednafen_pc_engine_core_button_pressed (HsPcEngineCore *core, guint player, HsPcEngineButton button)
+{
+  MednafenCore *self = MEDNAFEN_CORE (core);
+
+  *self->input_buffer[player] |= 1 << pce_button_mapping[button];
+}
+
+static void
+mednafen_pc_engine_core_button_released (HsPcEngineCore *core, guint player, HsPcEngineButton button)
+{
+  MednafenCore *self = MEDNAFEN_CORE (core);
+
+ *self->input_buffer[player] &= ~(1 << pce_button_mapping[button]);
+}
+
+static HsPcEnginePadMode
+mednafen_pc_engine_core_get_pad_mode (HsPcEngineCore *core, guint player)
+{
+  MednafenCore *self = MEDNAFEN_CORE (core);
+
+  if ((*self->input_buffer[player] & MODE_SWITCH_MASK) > 0)
+    return HS_PC_ENGINE_SIX_BUTTONS;
+  else
+    return HS_PC_ENGINE_TWO_BUTTONS;
+}
+
+static void
+mednafen_pc_engine_core_set_pad_mode (HsPcEngineCore *core, guint player, HsPcEnginePadMode mode)
+{
+  MednafenCore *self = MEDNAFEN_CORE (core);
+
+  switch (mode) {
+  case HS_PC_ENGINE_TWO_BUTTONS:
+    *self->input_buffer[player] &= ~MODE_SWITCH_MASK;
+    break;
+  case HS_PC_ENGINE_SIX_BUTTONS:
+    *self->input_buffer[player] |= MODE_SWITCH_MASK;
+    break;
+  default:
+    g_assert_not_reached ();
+  }
+}
+
+static void
+mednafen_pc_engine_core_init (HsPcEngineCoreInterface *iface)
+{
+  iface->button_pressed = mednafen_pc_engine_core_button_pressed;
+  iface->button_released = mednafen_pc_engine_core_button_released;
+  iface->get_pad_mode = mednafen_pc_engine_core_get_pad_mode;
+  iface->set_pad_mode = mednafen_pc_engine_core_set_pad_mode;
+}
 
 const int vb_button_mapping[] = {
   9,  8,  7,  6,  // L_UP, L_DOWN, L_LEFT, L_RIGHT
@@ -365,7 +462,6 @@ mednafen_virtual_boy_core_button_released (HsVirtualBoyCore *core, HsVirtualBoyB
 
  *self->input_buffer[0] &= ~(1 << vb_button_mapping[button]);
 }
-
 
 static void
 mednafen_virtual_boy_core_init (HsVirtualBoyCoreInterface *iface)

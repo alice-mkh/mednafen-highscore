@@ -13,8 +13,10 @@ add_project_arguments([
 ], language: 'c')
 
 add_project_arguments([
+  '-Wno-format-overflow',
   '-Wno-implicit-fallthrough',
   '-Wno-missing-field-initializers',
+  '-Wno-stringop-truncation',
   '-Wno-unused-but-set-variable',
   '-Wno-unused-parameter',
   '-Wno-unused-value',
@@ -81,6 +83,7 @@ mednafen_source = [
   '../src/hw_cpu/v810/v810_fp_ops.cpp',
   '../src/hw_cpu/z80-fuse/z80.cpp',
   '../src/hw_cpu/z80-fuse/z80_ops.cpp',
+  '../src/hw_misc/arcade_card/arcade_card.cpp',
   '../src/mthreading/MThreading_POSIX.cpp',
   '../src/quicklz/quicklz.c',
   '../src/resampler/resample.c',
@@ -90,6 +93,7 @@ mednafen_source = [
   '../src/sound/OwlResampler.cpp',
   '../src/sound/Stereo_Buffer.cpp',
   '../src/sound/WAVRecord.cpp',
+  '../src/sound/okiadpcm.cpp',
   '../src/string/escape.cpp',
   '../src/string/string.cpp',
   '../src/time/Time_POSIX.cpp',
@@ -115,6 +119,7 @@ mednafen_source = [
   '../src/mednafen.cpp',
   '../src/mempatcher.cpp',
   '../src/memory.cpp',
+  '../src/player.cpp',
   '../src/settings.cpp',
   '../src/state.cpp',
   '../src/state_rewind.cpp',
@@ -145,6 +150,16 @@ mednafen_source = [
   '../src/ngp/sound.cpp',
   '../src/ngp/T6W28_Apu.cpp',
   '../src/ngp/Z80_interface.cpp',
+
+  '../src/pce_fast/hes.cpp',
+  '../src/pce_fast/huc6280.cpp',
+  '../src/pce_fast/huc.cpp',
+  '../src/pce_fast/input.cpp',
+  '../src/pce_fast/pcecd.cpp',
+  '../src/pce_fast/pcecd_drive.cpp',
+  '../src/pce_fast/pce.cpp',
+  '../src/pce_fast/psg.cpp',
+  '../src/pce_fast/vdc.cpp',
 
   '../src/vb/input.cpp',
   '../src/vb/timer.cpp',
@@ -180,6 +195,7 @@ mednafen_c_cpp_args = [
   '-DMEDNAFEN_VERSION="@0@"'.format(mednafen_version),
   '-DMEDNAFEN_VERSION_NUMERIC=@0@'.format(mednafen_version_numeric),
   '-DWANT_NGP_EMU=1',
+  '-DWANT_PCE_FAST_EMU=1',
   '-DWANT_VB_EMU=1',
 ]
 
