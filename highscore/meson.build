@@ -38,6 +38,15 @@ mednafen_deps = [
   cc.find_library('m', required : false),
 ]
 
+minilzo_source = [
+  '../src/minilzo/minilzo.c',
+]
+
+minilzo = static_library('minilzo',
+  minilzo_source,
+  include_directories: include_directories('include')
+)
+
 trio_source = [
   '../src/trio/trio.c',
   '../src/trio/trionan.c',
@@ -49,17 +58,15 @@ trio = static_library('trio',
   include_directories: include_directories('include')
 )
 
-minilzo_source = [
-  '../src/minilzo/minilzo.c',
-]
-
-minilzo = static_library('minilzo',
-  minilzo_source,
-  include_directories: include_directories('include')
-)
-
 mednafen_source = [
   '../src/cdplay/cdplay.cpp',
+  '../src/cdrom/CDAFReader.cpp',
+  '../src/cdrom/CDAFReader_MPC.cpp',
+  '../src/cdrom/CDAFReader_PCM.cpp',
+  '../src/cdrom/CDAFReader_Vorbis.cpp',
+  '../src/cdrom/CDAccess.cpp',
+  '../src/cdrom/CDAccess_CCD.cpp',
+  '../src/cdrom/CDAccess_Image.cpp',
   '../src/cdrom/CDInterface.cpp',
   '../src/cdrom/CDInterface_MT.cpp',
   '../src/cdrom/CDInterface_ST.cpp',
@@ -84,6 +91,15 @@ mednafen_source = [
   '../src/hw_cpu/z80-fuse/z80.cpp',
   '../src/hw_cpu/z80-fuse/z80_ops.cpp',
   '../src/hw_misc/arcade_card/arcade_card.cpp',
+  '../src/mpcdec/crc32.c',
+  '../src/mpcdec/huffman.c',
+  '../src/mpcdec/mpc_bits_reader.c',
+  '../src/mpcdec/mpc_decoder.c',
+  '../src/mpcdec/mpc_demux.c',
+  '../src/mpcdec/mpc_reader.c',
+  '../src/mpcdec/requant.c',
+  '../src/mpcdec/streaminfo.c',
+  '../src/mpcdec/synth_filter.c',
   '../src/mthreading/MThreading_POSIX.cpp',
   '../src/quicklz/quicklz.c',
   '../src/resampler/resample.c',
@@ -97,6 +113,21 @@ mednafen_source = [
   '../src/string/escape.cpp',
   '../src/string/string.cpp',
   '../src/time/Time_POSIX.cpp',
+  '../src/tremor/bitwise.c',
+  '../src/tremor/block.c',
+  '../src/tremor/codebook.c',
+  '../src/tremor/floor0.c',
+  '../src/tremor/floor1.c',
+  '../src/tremor/framing.c',
+  '../src/tremor/info.c',
+  '../src/tremor/mapping0.c',
+  '../src/tremor/mdct.c',
+  '../src/tremor/registry.c',
+  '../src/tremor/res012.c',
+  '../src/tremor/sharedbook.c',
+  '../src/tremor/synthesis.c',
+  '../src/tremor/vorbisfile.c',
+  '../src/tremor/window.c',
   '../src/video/Deinterlacer.cpp',
   '../src/video/Deinterlacer_Blend.cpp',
   '../src/video/Deinterlacer_Simple.cpp',
@@ -169,7 +200,6 @@ mednafen_source = [
 
   'mednafen-highscore.cpp',
 
-  'shims/cdrom/CDAccess.cpp',
   'shims/video/text.cpp',
   'shims/driver.cpp',
   'shims/movie.cpp',

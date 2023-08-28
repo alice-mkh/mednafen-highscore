@@ -21,15 +21,18 @@ struct _MednafenCore
   int16_t *sound_buffer;
 
   char *rom_path;
+  char *pce_cd_bios_path;
 };
 
 static void mednafen_neo_geo_pocket_core_init (HsNeoGeoPocketCoreInterface *iface);
 static void mednafen_pc_engine_core_init (HsPcEngineCoreInterface *iface);
+static void mednafen_pc_engine_cd_core_init (HsPcEngineCdCoreInterface *iface);
 static void mednafen_virtual_boy_core_init (HsVirtualBoyCoreInterface *iface);
 
 G_DEFINE_FINAL_TYPE_WITH_CODE (MednafenCore, mednafen_core, HS_TYPE_CORE,
                                G_IMPLEMENT_INTERFACE (HS_TYPE_NEO_GEO_POCKET_CORE, mednafen_neo_geo_pocket_core_init)
                                G_IMPLEMENT_INTERFACE (HS_TYPE_PC_ENGINE_CORE, mednafen_pc_engine_core_init)
+                               G_IMPLEMENT_INTERFACE (HS_TYPE_PC_ENGINE_CD_CORE, mednafen_pc_engine_cd_core_init)
                                G_IMPLEMENT_INTERFACE (HS_TYPE_VIRTUAL_BOY_CORE, mednafen_virtual_boy_core_init))
 
 void
@@ -89,6 +92,15 @@ mednafen_core_load_rom (HsCore      *core,
   Mednafen::MDFNI_SetSetting ("filesys.path_sav", "");
   Mednafen::MDFNI_SetSetting ("filesys.fname_sav", save_path);
 
+  if (hs_core_get_platform (core) == HS_PLATFORM_PC_ENGINE_CD) {
+    if (!self->pce_cd_bios_path) {
+      g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_BIOS, "Missing System Card 3.0 BIOS");
+      return FALSE;
+    }
+
+    Mednafen::MDFNI_SetSetting ("pce_fast.cdbios", self->pce_cd_bios_path);
+  }
+
   const char *platform_name;
 
   switch (hs_platform_get_base_platform (hs_core_get_platform (core))) {
@@ -131,6 +143,8 @@ mednafen_core_load_rom (HsCore      *core,
   default:
     g_assert_not_reached ();
   }
+
+  Mednafen::MDFNI_SetMedia (0, 2, 0, 0);
 
   self->rom_path = g_strdup (rom_path);
 
@@ -201,7 +215,7 @@ mednafen_core_save_data (HsCore  *core,
 
   g_autoptr (GFile) tmp_dir = g_file_new_for_path (tmp_path);
   g_autoptr (GFile) tmp_save = g_file_get_child (tmp_dir, "savestate");
-  g_autofree char *tmp_save_path = g_file_get_path (tmp_save);
+  const char *tmp_save_path = g_file_peek_path (tmp_save);
 
   Mednafen::MDFNI_SaveState (tmp_save_path, "", NULL, NULL, NULL);
 
@@ -306,6 +320,7 @@ mednafen_core_finalize (GObject *object)
     g_free (self->input_buffer[i]);
 
   g_free (self->sound_buffer);
+  g_free (self->pce_cd_bios_path);
 
   core = NULL;
 
@@ -438,6 +453,20 @@ mednafen_pc_engine_core_init (HsPcEngineCoreInterface *iface)
   iface->button_released = mednafen_pc_engine_core_button_released;
   iface->get_pad_mode = mednafen_pc_engine_core_get_pad_mode;
   iface->set_pad_mode = mednafen_pc_engine_core_set_pad_mode;
+}
+
+static void
+mednafen_pc_engine_cb_core_set_bios_path (HsPcEngineCdCore *core, const char *path)
+{
+  MednafenCore *self = MEDNAFEN_CORE (core);
+
+  g_set_str (&self->pce_cd_bios_path, path);
+}
+
+static void
+mednafen_pc_engine_cd_core_init (HsPcEngineCdCoreInterface *iface)
+{
+  iface->set_bios_path = mednafen_pc_engine_cb_core_set_bios_path;
 }
 
 const int vb_button_mapping[] = {
