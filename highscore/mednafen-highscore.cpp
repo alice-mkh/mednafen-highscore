@@ -6,6 +6,9 @@
 #define SOUND_BUFFER_SIZE 0x10000
 #define SAMPLE_RATE 44100
 
+#define PCE_OVERSCAN_TOP 4
+#define PCE_OVERSCAN_BOTTOM 4
+
 static MednafenCore *core;
 
 struct _MednafenCore
@@ -77,6 +80,8 @@ mednafen_core_load_rom (HsCore      *core,
                         GError     **error)
 {
   MednafenCore *self = MEDNAFEN_CORE (core);
+  HsPlatform platform = hs_core_get_platform (core);
+  HsPlatform base_platform = hs_platform_get_base_platform (platform);
 
   if (!Mednafen::MDFNI_Init ()) {
     g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_INTERNAL, "Failed to initialize Mednafen");
@@ -92,7 +97,7 @@ mednafen_core_load_rom (HsCore      *core,
   Mednafen::MDFNI_SetSetting ("filesys.path_sav", "");
   Mednafen::MDFNI_SetSetting ("filesys.fname_sav", save_path);
 
-  if (hs_core_get_platform (core) == HS_PLATFORM_PC_ENGINE_CD) {
+  if (platform == HS_PLATFORM_PC_ENGINE_CD) {
     if (!self->pce_cd_bios_path) {
       g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_BIOS, "Missing System Card 3.0 BIOS");
       return FALSE;
@@ -103,7 +108,7 @@ mednafen_core_load_rom (HsCore      *core,
 
   const char *platform_name;
 
-  switch (hs_platform_get_base_platform (hs_core_get_platform (core))) {
+  switch (base_platform) {
   case HS_PLATFORM_NEO_GEO_POCKET:
     platform_name = "ngp";
     break;
@@ -125,7 +130,7 @@ mednafen_core_load_rom (HsCore      *core,
                                               self->game->fb_width, self->game->fb_height, self->game->fb_width,
                                               Mednafen::MDFN_PixelFormat::ARGB32_8888);
 
-  switch (hs_platform_get_base_platform (hs_core_get_platform (core))) {
+  switch (base_platform) {
   case HS_PLATFORM_NEO_GEO_POCKET:
     self->game->SetInput (0, "gamepad", (uint8_t *) self->input_buffer[0]);
     break;
@@ -143,8 +148,6 @@ mednafen_core_load_rom (HsCore      *core,
   default:
     g_assert_not_reached ();
   }
-
-  Mednafen::MDFNI_SetMedia (0, 2, 0, 0);
 
   self->rom_path = g_strdup (rom_path);
 
@@ -291,7 +294,7 @@ mednafen_core_get_aspect_ratio (HsCore *core)
 
   switch (hs_platform_get_base_platform (hs_core_get_platform (core))) {
   case HS_PLATFORM_PC_ENGINE:
-    return self->game->nominal_width / (double) self->game->nominal_height * 8.0 / 7.0;
+    return 256.0 / (240.0 - PCE_OVERSCAN_TOP - PCE_OVERSCAN_BOTTOM) * 8.0 / 7.0;
   default:
     return self->game->nominal_width / (double) self->game->nominal_height;
   }
