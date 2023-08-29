@@ -198,6 +198,21 @@ mednafen_source = [
   '../src/vb/vip.cpp',
   '../src/vb/vsu.cpp',
 
+  '../src/wswan/comm.cpp',
+  '../src/wswan/eeprom.cpp',
+  '../src/wswan/gfx.cpp',
+  '../src/wswan/interrupt.cpp',
+  '../src/wswan/main.cpp',
+  '../src/wswan/memory.cpp',
+  '../src/wswan/rtc.cpp',
+  '../src/wswan/sound.cpp',
+  '../src/wswan/tcache.cpp',
+  '../src/wswan/v30mz.cpp',
+  '../src/wswan/dis/dis_decode.cpp',
+  '../src/wswan/dis/dis_groups.cpp',
+  '../src/wswan/dis/resolve.cpp',
+  '../src/wswan/dis/syntax.cpp',
+
   'mednafen-highscore.cpp',
 
   'shims/video/text.cpp',
@@ -227,6 +242,7 @@ mednafen_c_cpp_args = [
   '-DWANT_NGP_EMU=1',
   '-DWANT_PCE_FAST_EMU=1',
   '-DWANT_VB_EMU=1',
+  '-DWANT_WSWAN_EMU=1',
 ]
 
 arch = build_machine.cpu_family()

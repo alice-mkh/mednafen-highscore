@@ -31,12 +31,14 @@ static void mednafen_neo_geo_pocket_core_init (HsNeoGeoPocketCoreInterface *ifac
 static void mednafen_pc_engine_core_init (HsPcEngineCoreInterface *iface);
 static void mednafen_pc_engine_cd_core_init (HsPcEngineCdCoreInterface *iface);
 static void mednafen_virtual_boy_core_init (HsVirtualBoyCoreInterface *iface);
+static void mednafen_wonderswan_core_init (HsWonderSwanCoreInterface *iface);
 
 G_DEFINE_FINAL_TYPE_WITH_CODE (MednafenCore, mednafen_core, HS_TYPE_CORE,
                                G_IMPLEMENT_INTERFACE (HS_TYPE_NEO_GEO_POCKET_CORE, mednafen_neo_geo_pocket_core_init)
                                G_IMPLEMENT_INTERFACE (HS_TYPE_PC_ENGINE_CORE, mednafen_pc_engine_core_init)
                                G_IMPLEMENT_INTERFACE (HS_TYPE_PC_ENGINE_CD_CORE, mednafen_pc_engine_cd_core_init)
-                               G_IMPLEMENT_INTERFACE (HS_TYPE_VIRTUAL_BOY_CORE, mednafen_virtual_boy_core_init))
+                               G_IMPLEMENT_INTERFACE (HS_TYPE_VIRTUAL_BOY_CORE, mednafen_virtual_boy_core_init)
+                               G_IMPLEMENT_INTERFACE (HS_TYPE_WONDERSWAN_CORE, mednafen_wonderswan_core_init))
 
 void
 Mednafen::MDFND_OutputInfo (const char *s) noexcept
@@ -118,6 +120,9 @@ mednafen_core_load_rom (HsCore      *core,
   case HS_PLATFORM_VIRTUAL_BOY:
     platform_name = "vb";
     break;
+  case HS_PLATFORM_WONDERSWAN:
+    platform_name = "wswan";
+    break;
   default:
     g_assert_not_reached ();
   }
@@ -144,6 +149,9 @@ mednafen_core_load_rom (HsCore      *core,
   case HS_PLATFORM_VIRTUAL_BOY:
     self->game->SetInput (0, "gamepad", (uint8_t *) self->input_buffer[0]);
     self->game->SetInput (1, "misc", (uint8_t *) self->input_buffer[1]); // TODO use this
+    break;
+  case HS_PLATFORM_WONDERSWAN:
+    self->game->SetInput (0, "gamepad", (uint8_t *) self->input_buffer[0]);
     break;
   default:
     g_assert_not_reached ();
@@ -279,6 +287,8 @@ mednafen_core_get_frame_rate (HsCore *core)
     return 59.826105;
   case HS_PLATFORM_VIRTUAL_BOY:
     return 50.273488;
+  case HS_PLATFORM_WONDERSWAN:
+    return 75.471698;
   default:
     g_assert_not_reached ();
   }
@@ -500,6 +510,35 @@ mednafen_virtual_boy_core_init (HsVirtualBoyCoreInterface *iface)
 {
   iface->button_pressed = mednafen_virtual_boy_core_button_pressed;
   iface->button_released = mednafen_virtual_boy_core_button_released;
+}
+
+const int ws_button_mapping[] = {
+  0, 1,  2, 3, // X1, X2, X3, X4
+  4, 5,  6, 7, // Y1, Y2, Y3, Y4
+  9, 10, 8,    // A, B, START
+};
+
+static void
+mednafen_wonderswan_core_button_pressed (HsWonderSwanCore *core, HsWonderSwanButton button)
+{
+  MednafenCore *self = MEDNAFEN_CORE (core);
+
+  *self->input_buffer[0] |= 1 << ws_button_mapping[button];
+}
+
+static void
+mednafen_wonderswan_core_button_released (HsWonderSwanCore *core, HsWonderSwanButton button)
+{
+  MednafenCore *self = MEDNAFEN_CORE (core);
+
+ *self->input_buffer[0] &= ~(1 << ws_button_mapping[button]);
+}
+
+static void
+mednafen_wonderswan_core_init (HsWonderSwanCoreInterface *iface)
+{
+  iface->button_pressed = mednafen_wonderswan_core_button_pressed;
+  iface->button_released = mednafen_wonderswan_core_button_released;
 }
 
 GType
