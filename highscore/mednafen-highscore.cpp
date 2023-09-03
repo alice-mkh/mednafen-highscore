@@ -162,6 +162,102 @@ mednafen_core_load_rom (HsCore      *core,
   return TRUE;
 }
 
+const int NGP_BUTTON_MAPPING[] = {
+  0, 1, 2, 3,  // UP, DOWN, LEFT, RIGHT
+  4, 5, 6,     // A, B, OPTION
+};
+
+const int PCE_BUTTON_MAPPING[] = {
+  4, 6, 7,  5,  // UP, DOWN, LEFT, RIGHT
+  0, 1,         // I, II
+  8, 9, 10, 11, // III, IV, V, VI
+  2, 3          // SELECT, RUN
+};
+
+#define MODE_SWITCH_MASK (1 << 12)
+
+const int VB_BUTTON_MAPPING[] = {
+  9,  8,  7,  6,  // L_UP, L_DOWN, L_LEFT, L_RIGHT
+  4,  13, 12, 5,  // R_UP, R_DOWN, R_LEFT, R_RIGHT
+  0,  1,  11, 10, // A,    B,      SELECT, START
+  2,  3,          // L,    R
+};
+
+const int WS_BUTTON_MAPPING[] = {
+  0, 1,  2, 3, // X1, X2, X3, X4
+  4, 5,  6, 7, // Y1, Y2, Y3, Y4
+  9, 10, 8,    // A, B, START
+};
+
+static void
+mednafen_core_poll_input (HsCore *core, HsInputState *input_state)
+{
+  MednafenCore *self = MEDNAFEN_CORE (core);
+  HsPlatform platform = hs_core_get_platform (core);
+  HsPlatform base_platform = hs_platform_get_base_platform (platform);
+
+  if (base_platform == HS_PLATFORM_NEO_GEO_POCKET) {
+    uint32 buttons = input_state->neo_geo_pocket.buttons;
+
+    for (int btn = 0; btn < HS_NEO_GEO_POCKET_N_BUTTONS; btn++) {
+      if (buttons & 1 << btn)
+        *self->input_buffer[0] |= 1 << NGP_BUTTON_MAPPING[btn];
+      else
+        *self->input_buffer[0] &= ~(1 << NGP_BUTTON_MAPPING[btn]);
+    }
+
+    return;
+  }
+
+  if (base_platform == HS_PLATFORM_PC_ENGINE) {
+    for (int player = 0; player < HS_PC_ENGINE_MAX_PLAYERS; player++) {
+      uint32 buttons = input_state->pc_engine.pad_buttons[player];
+
+      for (int btn = 0; btn < HS_PC_ENGINE_N_BUTTONS; btn++) {
+        if (buttons & 1 << btn)
+          *self->input_buffer[player] |= 1 << PCE_BUTTON_MAPPING[btn];
+        else
+          *self->input_buffer[player] &= ~(1 << PCE_BUTTON_MAPPING[btn]);
+      }
+
+      if (input_state->pc_engine.pad_mode[player] == HS_PC_ENGINE_SIX_BUTTONS)
+        *self->input_buffer[player] |= MODE_SWITCH_MASK;
+      else
+        *self->input_buffer[player] &= ~MODE_SWITCH_MASK;
+    }
+
+    return;
+  }
+
+  if (base_platform == HS_PLATFORM_VIRTUAL_BOY) {
+    uint32 buttons = input_state->virtual_boy.buttons;
+
+    for (int btn = 0; btn < HS_VIRTUAL_BOY_N_BUTTONS; btn++) {
+      if (buttons & 1 << btn)
+        *self->input_buffer[0] |= 1 << VB_BUTTON_MAPPING[btn];
+      else
+        *self->input_buffer[0] &= ~(1 << VB_BUTTON_MAPPING[btn]);
+    }
+
+    return;
+  }
+
+  if (base_platform == HS_PLATFORM_WONDERSWAN) {
+    uint32 buttons = input_state->wonderswan.buttons;
+
+    for (int btn = 0; btn < HS_WONDERSWAN_N_BUTTONS; btn++) {
+      if (buttons & 1 << btn)
+        *self->input_buffer[0] |= 1 << WS_BUTTON_MAPPING[btn];
+      else
+        *self->input_buffer[0] &= ~(1 << WS_BUTTON_MAPPING[btn]);
+    }
+
+    return;
+  }
+
+  g_assert_not_reached ();
+}
+
 static void
 mednafen_core_run_frame (HsCore *core)
 {
@@ -349,6 +445,7 @@ mednafen_core_class_init (MednafenCoreClass *klass)
   object_class->finalize = mednafen_core_finalize;
 
   core_class->load_rom = mednafen_core_load_rom;
+  core_class->poll_input = mednafen_core_poll_input;
   core_class->run_frame = mednafen_core_run_frame;
   core_class->reset = mednafen_core_reset;
   core_class->stop = mednafen_core_stop;
@@ -378,94 +475,14 @@ mednafen_core_init (MednafenCore *self)
   self->sound_buffer = g_new0 (int16_t, SOUND_BUFFER_SIZE);
 }
 
-const int ngp_button_mapping[] = {
-  0, 1, 2, 3,  // UP, DOWN, LEFT, RIGHT
-  4, 5, 6,     // A, B, OPTION
-};
-
-static void
-mednafen_neo_geo_pocket_core_button_pressed (HsNeoGeoPocketCore *core, HsNeoGeoPocketButton button)
-{
-  MednafenCore *self = MEDNAFEN_CORE (core);
-
-  *self->input_buffer[0] |= 1 << ngp_button_mapping[button];
-}
-
-static void
-mednafen_neo_geo_pocket_core_button_released (HsNeoGeoPocketCore *core, HsNeoGeoPocketButton button)
-{
-  MednafenCore *self = MEDNAFEN_CORE (core);
-
- *self->input_buffer[0] &= ~(1 << ngp_button_mapping[button]);
-}
-
 static void
 mednafen_neo_geo_pocket_core_init (HsNeoGeoPocketCoreInterface *iface)
 {
-  iface->button_pressed = mednafen_neo_geo_pocket_core_button_pressed;
-  iface->button_released = mednafen_neo_geo_pocket_core_button_released;
-}
-
-const int pce_button_mapping[] = {
-  4, 6, 7,  5,  // UP, DOWN, LEFT, RIGHT
-  0, 1,         // I, II
-  8, 9, 10, 11, // III, IV, V, VI
-  2, 3          // SELECT, RUN
-};
-
-#define MODE_SWITCH_MASK (1 << 12)
-
-static void
-mednafen_pc_engine_core_button_pressed (HsPcEngineCore *core, guint player, HsPcEngineButton button)
-{
-  MednafenCore *self = MEDNAFEN_CORE (core);
-
-  *self->input_buffer[player] |= 1 << pce_button_mapping[button];
-}
-
-static void
-mednafen_pc_engine_core_button_released (HsPcEngineCore *core, guint player, HsPcEngineButton button)
-{
-  MednafenCore *self = MEDNAFEN_CORE (core);
-
- *self->input_buffer[player] &= ~(1 << pce_button_mapping[button]);
-}
-
-static HsPcEnginePadMode
-mednafen_pc_engine_core_get_pad_mode (HsPcEngineCore *core, guint player)
-{
-  MednafenCore *self = MEDNAFEN_CORE (core);
-
-  if ((*self->input_buffer[player] & MODE_SWITCH_MASK) > 0)
-    return HS_PC_ENGINE_SIX_BUTTONS;
-  else
-    return HS_PC_ENGINE_TWO_BUTTONS;
-}
-
-static void
-mednafen_pc_engine_core_set_pad_mode (HsPcEngineCore *core, guint player, HsPcEnginePadMode mode)
-{
-  MednafenCore *self = MEDNAFEN_CORE (core);
-
-  switch (mode) {
-  case HS_PC_ENGINE_TWO_BUTTONS:
-    *self->input_buffer[player] &= ~MODE_SWITCH_MASK;
-    break;
-  case HS_PC_ENGINE_SIX_BUTTONS:
-    *self->input_buffer[player] |= MODE_SWITCH_MASK;
-    break;
-  default:
-    g_assert_not_reached ();
-  }
 }
 
 static void
 mednafen_pc_engine_core_init (HsPcEngineCoreInterface *iface)
 {
-  iface->button_pressed = mednafen_pc_engine_core_button_pressed;
-  iface->button_released = mednafen_pc_engine_core_button_released;
-  iface->get_pad_mode = mednafen_pc_engine_core_get_pad_mode;
-  iface->set_pad_mode = mednafen_pc_engine_core_set_pad_mode;
 }
 
 static void
@@ -482,63 +499,14 @@ mednafen_pc_engine_cd_core_init (HsPcEngineCdCoreInterface *iface)
   iface->set_bios_path = mednafen_pc_engine_cb_core_set_bios_path;
 }
 
-const int vb_button_mapping[] = {
-  9,  8,  7,  6,  // L_UP, L_DOWN, L_LEFT, L_RIGHT
-  4,  13, 12, 5,  // R_UP, R_DOWN, R_LEFT, R_RIGHT
-  0,  1,  11, 10, // A,    B,      SELECT, START
-  2,  3,          // L,    R
-};
-
-static void
-mednafen_virtual_boy_core_button_pressed (HsVirtualBoyCore *core, HsVirtualBoyButton button)
-{
-  MednafenCore *self = MEDNAFEN_CORE (core);
-
-  *self->input_buffer[0] |= 1 << vb_button_mapping[button];
-}
-
-static void
-mednafen_virtual_boy_core_button_released (HsVirtualBoyCore *core, HsVirtualBoyButton button)
-{
-  MednafenCore *self = MEDNAFEN_CORE (core);
-
- *self->input_buffer[0] &= ~(1 << vb_button_mapping[button]);
-}
-
 static void
 mednafen_virtual_boy_core_init (HsVirtualBoyCoreInterface *iface)
 {
-  iface->button_pressed = mednafen_virtual_boy_core_button_pressed;
-  iface->button_released = mednafen_virtual_boy_core_button_released;
-}
-
-const int ws_button_mapping[] = {
-  0, 1,  2, 3, // X1, X2, X3, X4
-  4, 5,  6, 7, // Y1, Y2, Y3, Y4
-  9, 10, 8,    // A, B, START
-};
-
-static void
-mednafen_wonderswan_core_button_pressed (HsWonderSwanCore *core, HsWonderSwanButton button)
-{
-  MednafenCore *self = MEDNAFEN_CORE (core);
-
-  *self->input_buffer[0] |= 1 << ws_button_mapping[button];
-}
-
-static void
-mednafen_wonderswan_core_button_released (HsWonderSwanCore *core, HsWonderSwanButton button)
-{
-  MednafenCore *self = MEDNAFEN_CORE (core);
-
- *self->input_buffer[0] &= ~(1 << ws_button_mapping[button]);
 }
 
 static void
 mednafen_wonderswan_core_init (HsWonderSwanCoreInterface *iface)
 {
-  iface->button_pressed = mednafen_wonderswan_core_button_pressed;
-  iface->button_released = mednafen_wonderswan_core_button_released;
 }
 
 GType
