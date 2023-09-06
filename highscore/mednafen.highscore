@@ -1,6 +1,6 @@
 [Highscore]
 Name=Mednafen
-Module=libmednafen-highscore.so
+Module=mednafen-highscore.so
 Copyright=Copyright (C) 2005-2022 Mednafen Team;
 Website=https://mednafen.github.io/
 License=GPL-2.0-only

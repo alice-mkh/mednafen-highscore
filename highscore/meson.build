@@ -272,6 +272,7 @@ shared_library('mednafen-highscore',
   link_with : [ trio, minilzo ],
   c_args : mednafen_c_cpp_args,
   cpp_args : mednafen_c_cpp_args,
+  name_prefix: '',
   install_dir : cores_dir,
   install : true,
 )
