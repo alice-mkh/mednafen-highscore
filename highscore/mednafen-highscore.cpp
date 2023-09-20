@@ -163,6 +163,8 @@ mednafen_core_load_rom (HsCore      *core,
 
   self->rom_path = g_strdup (rom_path);
 
+  Mednafen::MDFNI_SetMedia (0, 2, 0, 0);
+
   return TRUE;
 }
 
