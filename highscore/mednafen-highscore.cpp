@@ -128,6 +128,10 @@ mednafen_core_load_rom (HsCore      *core,
   }
 
   self->game = Mednafen::MDFNI_LoadGame (platform_name, &::Mednafen::NVFS, rom_path);
+  if (!self->game) {
+    g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_INTERNAL, "Failed to load game");
+    return FALSE;
+  }
 
   self->context = hs_core_create_software_context (core, self->game->fb_width, self->game->fb_height, HS_PIXEL_FORMAT_XRGB8888_REV);
 
