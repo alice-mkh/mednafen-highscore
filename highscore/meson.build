@@ -2,8 +2,8 @@ project('mednafen-highscore', ['cpp', 'c'],
   version : '0.1',
 )
 
-mednafen_version='1.31.0-UNSTABLE'
-mednafen_version_numeric=0x00103100
+mednafen_version='1.32.0-UNSTABLE'
+mednafen_version_numeric=0x00103200
 
 add_project_arguments([
   '-Wno-unused-but-set-variable',
@@ -234,9 +234,9 @@ mednafen_c_cpp_args = [
   '-DMDFN_DISABLE_PICPIE_ERRWARN=1',
   '-DICONV_CONST=',
   '-DPACKAGE="mednafen"',
-  '-DPSS_STYLE=1',
   '-DHAVE_INLINEASM_AVX=1',
   '-DHAVE_MKDIR=1',
+  '-DMDFN_PSS_STYLE=1',
   '-DMEDNAFEN_VERSION="@0@"'.format(mednafen_version),
   '-DMEDNAFEN_VERSION_NUMERIC=@0@'.format(mednafen_version_numeric),
   '-DWANT_NGP_EMU=1',
