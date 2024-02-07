@@ -97,6 +97,7 @@ mednafen_core_load_rom (HsCore      *core,
   }
 
   Mednafen::MDFNI_SetSetting ("filesys.path_sav", "");
+  // TODO: For Saturn, add %x to the name
   Mednafen::MDFNI_SetSetting ("filesys.fname_sav", save_path);
 
   if (platform == HS_PLATFORM_PC_ENGINE_CD) {
@@ -315,7 +316,24 @@ mednafen_core_stop (HsCore *core)
 }
 
 static gboolean
-mednafen_core_save_data (HsCore  *core,
+mednafen_core_reload_save (HsCore      *core,
+                           const char  *save_path,
+                           GError    **error)
+{
+  MednafenCore *self = MEDNAFEN_CORE (core);
+
+  // TODO: For Saturn, add %x to the name
+  Mednafen::MDFNI_SetSetting ("filesys.fname_sav", save_path);
+
+  g_autofree char *system_name = g_strdup (self->game->shortname);
+  Mednafen::MDFNI_CloseGame ();
+  self->game = Mednafen::MDFNI_LoadGame (system_name, &::Mednafen::NVFS, self->rom_path);
+
+  return TRUE;
+}
+
+static gboolean
+mednafen_core_sync_save (HsCore  *core,
                          GError **error)
 {
   MednafenCore *self = MEDNAFEN_CORE (core);
@@ -457,7 +475,8 @@ mednafen_core_class_init (MednafenCoreClass *klass)
   core_class->reset = mednafen_core_reset;
   core_class->stop = mednafen_core_stop;
 
-  core_class->save_data = mednafen_core_save_data;
+  core_class->reload_save = mednafen_core_reload_save;
+  core_class->sync_save = mednafen_core_sync_save;
 
   core_class->load_state = mednafen_core_load_state;
   core_class->save_state = mednafen_core_save_state;
