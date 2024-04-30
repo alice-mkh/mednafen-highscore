@@ -192,7 +192,7 @@ disk2.drive2.enable 1
 #
 disk2.firmware 16sec
 
-# Uncomment to specify custom Disk II firmare.
+# Uncomment to specify custom Disk II firmware.
 #
 #  Optional; specify to override the Disk II firmware loaded via Mednafen's
 #  firmware loading system.

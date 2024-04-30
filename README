@@ -24,6 +24,29 @@
 
 
 -------------------------------------------------------------------------------
+ Code contributions:
+-------------------------------------------------------------------------------
+
+	To keep things simpler for potential commercial licensing of parts of
+	Mednafen, any patches or new code offered for the following emulation
+	modules, or their dependencies(e.g. M68K emulator), will be ignored:
+		apple2
+		pce
+		pcfx
+		psx
+		snes_faust
+		ss
+
+	Additionally, any contributions to core Mednafen functionality with
+	code that is not self-contained(e.g. support for a new CD image format),
+	will also be ignored.
+
+	Distributing a separate patch set or an outright fork, with branding
+	that clearly conveys the forkiness, is recommended in the aforementioned
+	cases.
+
+
+-------------------------------------------------------------------------------
  Some notes(and reminders) on the source code:
 -------------------------------------------------------------------------------
 
@@ -95,26 +118,4 @@
 
 	Don't rely on malloc(), realloc(), and calloc() setting errno to ENOMEM
 	on a memory allocation error.
-
-
--------------------------------------------------------------------------------
- Code contributions:
--------------------------------------------------------------------------------
-
-	To keep things simpler for commercial licensing, any patches or new code
-	offered for the following emulation modules will be ignored:
-		apple2
-		pce
-		pcfx
-		psx
-		snes_faust
-		ss
-
-	Additionally, any contributions to core Mednafen functionality with
-	code that is not self-contained(e.g. support for a new CD image format),
-	will also be ignored.
-
-	Distributing a separate patch set or an outright fork, with branding
-	that clearly conveys the forkiness, is recommended in the aforementioned
-	cases.
 
