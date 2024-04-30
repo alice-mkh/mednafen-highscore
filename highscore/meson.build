@@ -2,8 +2,8 @@ project('mednafen-highscore', ['cpp', 'c'],
   version : '0.1',
 )
 
-mednafen_version='1.32.0-UNSTABLE'
-mednafen_version_numeric=0x00103200
+mednafen_version='1.32.1'
+mednafen_version_numeric=0x00103201
 
 add_project_arguments([
   '-Wno-unused-but-set-variable',
