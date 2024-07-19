@@ -4,4 +4,4 @@ Module=mednafen-highscore.so
 Copyright=Copyright (C) 2005-2022 Mednafen Team;
 Website=https://mednafen.github.io/
 License=GPL-2.0-only
-Platforms=NeoGeoPocket;PcEngine;PcEngineCD;VirtualBoy;WonderSwan;
+Platforms=NeoGeoPocket;PcEngine;PcEngineCD;PlayStation;VirtualBoy;WonderSwan;

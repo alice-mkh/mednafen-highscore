@@ -26,6 +26,7 @@ struct _MednafenCore
   char *rom_path;
   GFile *m3u_file;
   char *pce_cd_bios_path;
+  char *psx_bios_path[HS_PLAYSTATION_BIOS_N_BIOS];
 
   guint current_disc;
   guint media_cb_id;
@@ -34,6 +35,7 @@ struct _MednafenCore
 static void mednafen_neo_geo_pocket_core_init (HsNeoGeoPocketCoreInterface *iface);
 static void mednafen_pc_engine_core_init (HsPcEngineCoreInterface *iface);
 static void mednafen_pc_engine_cd_core_init (HsPcEngineCdCoreInterface *iface);
+static void mednafen_playstation_core_init (HsPlayStationCoreInterface *iface);
 static void mednafen_virtual_boy_core_init (HsVirtualBoyCoreInterface *iface);
 static void mednafen_wonderswan_core_init (HsWonderSwanCoreInterface *iface);
 
@@ -41,6 +43,7 @@ G_DEFINE_FINAL_TYPE_WITH_CODE (MednafenCore, mednafen_core, HS_TYPE_CORE,
                                G_IMPLEMENT_INTERFACE (HS_TYPE_NEO_GEO_POCKET_CORE, mednafen_neo_geo_pocket_core_init)
                                G_IMPLEMENT_INTERFACE (HS_TYPE_PC_ENGINE_CORE, mednafen_pc_engine_core_init)
                                G_IMPLEMENT_INTERFACE (HS_TYPE_PC_ENGINE_CD_CORE, mednafen_pc_engine_cd_core_init)
+                               G_IMPLEMENT_INTERFACE (HS_TYPE_PLAYSTATION_CORE, mednafen_playstation_core_init)
                                G_IMPLEMENT_INTERFACE (HS_TYPE_VIRTUAL_BOY_CORE, mednafen_virtual_boy_core_init)
                                G_IMPLEMENT_INTERFACE (HS_TYPE_WONDERSWAN_CORE, mednafen_wonderswan_core_init))
 
@@ -154,7 +157,19 @@ mednafen_core_load_rom (HsCore      *core,
     Mednafen::MDFNI_SetSetting ("pce_fast.cdbios", self->pce_cd_bios_path);
   }
 
-  if (platform == HS_PLATFORM_PC_ENGINE_CD) {
+  if (platform == HS_PLATFORM_PLAYSTATION) {
+    if (self->psx_bios_path[HS_PLAYSTATION_BIOS_JP])
+      Mednafen::MDFNI_SetSetting ("psx.bios_jp", self->psx_bios_path[HS_PLAYSTATION_BIOS_JP]);
+    if (self->psx_bios_path[HS_PLAYSTATION_BIOS_US])
+      Mednafen::MDFNI_SetSetting ("psx.bios_na", self->psx_bios_path[HS_PLAYSTATION_BIOS_US]);
+    if (self->psx_bios_path[HS_PLAYSTATION_BIOS_EU])
+      Mednafen::MDFNI_SetSetting ("psx.bios_eu", self->psx_bios_path[HS_PLAYSTATION_BIOS_EU]);
+
+    Mednafen::MDFNI_SetSetting ("psx.h_overscan", "0");
+  }
+
+  if (platform == HS_PLATFORM_PC_ENGINE_CD ||
+      platform == HS_PLATFORM_PLAYSTATION) {
     if (n_rom_paths > 1) {
       // Make m3u work
       Mednafen::MDFNI_SetSetting ("filesys.untrusted_fip_check", "0");
@@ -180,6 +195,9 @@ mednafen_core_load_rom (HsCore      *core,
     break;
   case HS_PLATFORM_PC_ENGINE:
     platform_name = "pce_fast";
+    break;
+  case HS_PLATFORM_PLAYSTATION:
+    platform_name = "psx";
     break;
   case HS_PLATFORM_VIRTUAL_BOY:
     platform_name = "vb";
@@ -214,6 +232,12 @@ mednafen_core_load_rom (HsCore      *core,
     self->game->SetInput (3, "gamepad", (uint8_t *) self->input_buffer[3]);
     self->game->SetInput (4, "gamepad", (uint8_t *) self->input_buffer[4]);
     break;
+  case HS_PLATFORM_PLAYSTATION:
+    self->game->SetInput (0, "dualshock", (uint8_t *) self->input_buffer[0]);
+    self->game->SetInput (1, "dualshock", (uint8_t *) self->input_buffer[1]);
+    self->game->SetInput (2, "dualshock", (uint8_t *) self->input_buffer[2]);
+    self->game->SetInput (3, "dualshock", (uint8_t *) self->input_buffer[3]);
+    break;
   case HS_PLATFORM_VIRTUAL_BOY:
     self->game->SetInput (0, "gamepad", (uint8_t *) self->input_buffer[0]);
     self->game->SetInput (1, "misc", (uint8_t *) self->input_buffer[1]); // TODO use this
@@ -227,8 +251,10 @@ mednafen_core_load_rom (HsCore      *core,
 
   self->rom_path = g_strdup (rom_path);
 
-  if (platform == HS_PLATFORM_PC_ENGINE_CD)
+  if (platform == HS_PLATFORM_PC_ENGINE_CD ||
+      platform == HS_PLATFORM_PLAYSTATION) {
     Mednafen::MDFNI_SetMedia (0, 2, 0, 0);
+  }
 
   return TRUE;
 }
@@ -245,7 +271,21 @@ const int PCE_BUTTON_MAPPING[] = {
   2, 3          // SELECT, RUN
 };
 
-#define MODE_SWITCH_MASK (1 << 12)
+#define PCE_MODE_SWITCH_MASK (1 << 12)
+
+const int PSX_BUTTON_MAPPING[] = {
+  4,  6,  7,  5,  // UP, DOWN, LEFT, RIGHT
+  12, 15, 13, 14, // TRIANGLE, SQUARE, CIRCLE, CROSS
+  10, 8,  11, 9,  // L1, L2, R1, R2
+  1,  2,  0,  3,  // L3, R3, SELECT, START
+};
+
+#define PSX_MODE_SWITCH_MASK (1 << 16)
+
+const int PSX_STICK_MAPPING[] = {
+  7, 9, // L(x, y)
+  3, 5, // R(x, y)
+};
 
 const int VB_BUTTON_MAPPING[] = {
   9,  8,  7,  6,  // L_UP, L_DOWN, L_LEFT, L_RIGHT
@@ -292,9 +332,49 @@ mednafen_core_poll_input (HsCore *core, HsInputState *input_state)
       }
 
       if (input_state->pc_engine.pad_mode[player] == HS_PC_ENGINE_SIX_BUTTONS)
-        *self->input_buffer[player] |= MODE_SWITCH_MASK;
+        *self->input_buffer[player] |= PCE_MODE_SWITCH_MASK;
       else
-        *self->input_buffer[player] &= ~MODE_SWITCH_MASK;
+        *self->input_buffer[player] &= ~PCE_MODE_SWITCH_MASK;
+    }
+
+    return;
+  }
+
+  if (base_platform == HS_PLATFORM_PLAYSTATION) {
+    for (int player = 0; player < HS_PLAYSTATION_MAX_PLAYERS; player++) {
+      uint32 buttons = input_state->psx.pad_buttons[player];
+      uint8_t *buf = (uint8_t *) self->input_buffer[player];
+
+      for (int btn = 0; btn < HS_PLAYSTATION_N_BUTTONS; btn++) {
+        if (buttons & 1 << btn)
+          *self->input_buffer[player] |= 1 << PSX_BUTTON_MAPPING[btn];
+        else
+          *self->input_buffer[player] &= ~(1 << PSX_BUTTON_MAPPING[btn]);
+      }
+
+/* TODO
+      *self->input_buffer[player] |= PSX_MODE_SWITCH_MASK;
+*/
+
+      for (int stick = 0; stick < HS_PLAYSTATION_N_STICKS; stick++) {
+        double x = input_state->psx.pad_sticks_x[HS_PLAYSTATION_N_STICKS * player + stick];
+        double y = input_state->psx.pad_sticks_y[HS_PLAYSTATION_N_STICKS * player + stick];
+
+        double multiplier = 1.33;
+        // 30712 / cos(2*pi/8) / 32767 = 1.33
+        if (x < 0)
+          x = -MIN (floor (0.5 + ABS (x) * 32767 * multiplier), 32767);
+        else
+          x = MIN (floor (0.5 + ABS (x) * 32767 * multiplier), 32767);
+
+        if (y < 0)
+          y = -MIN (floor (0.5 + ABS (y) * 32767 * multiplier), 32767);
+        else
+          y = MIN (floor (0.5 + ABS (y) * 32767 * multiplier), 32767);
+
+        Mednafen::MDFN_en16lsb (&buf[PSX_STICK_MAPPING[stick * 2]],     x + 32767);
+        Mednafen::MDFN_en16lsb (&buf[PSX_STICK_MAPPING[stick * 2 + 1]], y + 32767);
+      }
     }
 
     return;
@@ -474,12 +554,15 @@ mednafen_core_save_state (HsCore          *core,
 static double
 mednafen_core_get_frame_rate (HsCore *core)
 {
-  // self->game->fps / 65536.0 / 256.0
+  MednafenCore *self = MEDNAFEN_CORE (core);
+
   switch (hs_platform_get_base_platform (hs_core_get_platform (core))) {
   case HS_PLATFORM_NEO_GEO_POCKET:
     return 60.253016;
   case HS_PLATFORM_PC_ENGINE:
     return 59.826105;
+  case HS_PLATFORM_PLAYSTATION:
+    return self->game->fps / 65536.0 / 256.0;
   case HS_PLATFORM_VIRTUAL_BOY:
     return 50.273488;
   case HS_PLATFORM_WONDERSWAN:
@@ -543,8 +626,10 @@ mednafen_core_set_current_media (HsCore *core, guint media)
   MednafenCore *self = MEDNAFEN_CORE (core);
   HsPlatform platform = hs_core_get_platform (core);
 
-  if (platform != HS_PLATFORM_PC_ENGINE_CD)
+  if (platform != HS_PLATFORM_PC_ENGINE_CD &&
+      platform != HS_PLATFORM_PLAYSTATION) {
     return;
+  }
 
   g_clear_handle_id (&self->media_cb_id, g_source_remove);
 
@@ -568,6 +653,9 @@ mednafen_core_finalize (GObject *object)
 
   g_free (self->sound_buffer);
   g_free (self->pce_cd_bios_path);
+
+  for (int i = 0; i < HS_PLAYSTATION_BIOS_N_BIOS; i++)
+    g_free (self->psx_bios_path[i]);
 
   core = NULL;
 
@@ -639,6 +727,20 @@ static void
 mednafen_pc_engine_cd_core_init (HsPcEngineCdCoreInterface *iface)
 {
   iface->set_bios_path = mednafen_pc_engine_cd_core_set_bios_path;
+}
+
+static void
+mednafen_playstation_core_set_bios_path (HsPlayStationCore *core, HsPlayStationBios type, const char *path)
+{
+  MednafenCore *self = MEDNAFEN_CORE (core);
+
+  g_set_str (&self->psx_bios_path[type], path);
+}
+
+static void
+mednafen_playstation_core_init (HsPlayStationCoreInterface *iface)
+{
+  iface->set_bios_path = mednafen_playstation_core_set_bios_path;
 }
 
 static void
