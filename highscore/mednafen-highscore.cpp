@@ -155,14 +155,18 @@ mednafen_core_load_rom (HsCore      *core,
   }
 
   if (platform == HS_PLATFORM_PC_ENGINE_CD) {
-    // Make m3u work
-    Mednafen::MDFNI_SetSetting ("filesys.untrusted_fip_check", "0");
+    if (n_rom_paths > 1) {
+      // Make m3u work
+      Mednafen::MDFNI_SetSetting ("filesys.untrusted_fip_check", "0");
 
-    self->m3u_file = make_m3u (self, rom_paths, n_rom_paths, error);
-    if (!self->m3u_file)
-      return FALSE;
+      self->m3u_file = make_m3u (self, rom_paths, n_rom_paths, error);
+      if (!self->m3u_file)
+        return FALSE;
 
-    rom_path = g_file_peek_path (self->m3u_file);
+      rom_path = g_file_peek_path (self->m3u_file);
+    } else {
+      rom_path = rom_paths[0];
+    }
   } else {
     g_assert (n_rom_paths == 1);
     rom_path = rom_paths[0];
