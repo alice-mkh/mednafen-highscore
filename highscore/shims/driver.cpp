@@ -20,10 +20,6 @@
 #include <mednafen/netplay-driver.h>
 #include <mednafen/state-driver.h>
 
-void Mednafen::MDFND_MediaSetNotification(uint32 drive_idx, uint32 state_idx, uint32 media_idx, uint32 orientation_idx)
-{
-}
-
 void Mednafen::MDFND_MidSync(EmulateSpecStruct *espec, const unsigned flags)
 {
 }

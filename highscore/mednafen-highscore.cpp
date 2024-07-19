@@ -24,7 +24,11 @@ struct _MednafenCore
   int16_t *sound_buffer;
 
   char *rom_path;
+  GFile *m3u_file;
   char *pce_cd_bios_path;
+
+  guint current_disc;
+  guint media_cb_id;
 };
 
 static void mednafen_neo_geo_pocket_core_init (HsNeoGeoPocketCoreInterface *iface);
@@ -75,15 +79,56 @@ Mednafen::MDFND_OutputNotice (MDFN_NoticeType t, const char* s) noexcept
   hs_core_log (HS_CORE (core), level, s);
 }
 
+void
+Mednafen::MDFND_MediaSetNotification(uint32 drive_idx, uint32 state_idx, uint32 media_idx, uint32 orientation_idx)
+{
+  if (state_idx == 0 || media_idx == core->current_disc)
+    return;
+
+  core->current_disc = media_idx;
+  hs_core_notify_current_media (HS_CORE (core));
+}
+
+static GFile *
+make_m3u (MednafenCore  *core,
+          const char   **rom_paths,
+          int            n_rom_paths,
+          GError       **error)
+{
+  g_autoptr (GFileIOStream) iostream = NULL;
+  GOutputStream *ostream;
+  GDataOutputStream *stream;
+  GFile *ret;
+  int i;
+
+  ret = g_file_new_tmp ("mednafen_highscore_XXXXXX.m3u", &iostream, error);
+  if (!ret)
+    return NULL;
+
+  ostream = g_io_stream_get_output_stream (G_IO_STREAM (iostream));
+  stream = g_data_output_stream_new (ostream);
+
+  for (i = 0; i < n_rom_paths; i++) {
+    g_data_output_stream_put_string (stream, rom_paths[i], NULL, error);
+    g_data_output_stream_put_byte (stream, '\n', NULL, error);
+  }
+
+  g_io_stream_close (G_IO_STREAM (iostream), NULL, NULL);
+
+  return ret;
+}
+
 static gboolean
 mednafen_core_load_rom (HsCore      *core,
-                        const char  *rom_path,
+                        const char **rom_paths,
+                        int          n_rom_paths,
                         const char  *save_path,
                         GError     **error)
 {
   MednafenCore *self = MEDNAFEN_CORE (core);
   HsPlatform platform = hs_core_get_platform (core);
   HsPlatform base_platform = hs_platform_get_base_platform (platform);
+  const char *rom_path;
 
   if (!Mednafen::MDFNI_Init ()) {
     g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_INTERNAL, "Failed to initialize Mednafen");
@@ -107,6 +152,20 @@ mednafen_core_load_rom (HsCore      *core,
     }
 
     Mednafen::MDFNI_SetSetting ("pce_fast.cdbios", self->pce_cd_bios_path);
+  }
+
+  if (platform == HS_PLATFORM_PC_ENGINE_CD) {
+    // Make m3u work
+    Mednafen::MDFNI_SetSetting ("filesys.untrusted_fip_check", "0");
+
+    self->m3u_file = make_m3u (self, rom_paths, n_rom_paths, error);
+    if (!self->m3u_file)
+      return FALSE;
+
+    rom_path = g_file_peek_path (self->m3u_file);
+  } else {
+    g_assert (n_rom_paths == 1);
+    rom_path = rom_paths[0];
   }
 
   const char *platform_name;
@@ -313,6 +372,17 @@ mednafen_core_stop (HsCore *core)
   Mednafen::MDFNI_Kill ();
 
   g_clear_pointer (&self->rom_path, g_free);
+
+  if (self->m3u_file) {
+    g_autoptr (GError) error = NULL;
+
+    if (g_file_delete (self->m3u_file, NULL, &error)) {
+      g_autofree char *message = g_strdup_printf ("Failed to delete the m3u file: %s", error->message);
+      hs_core_log (HS_CORE (core), HS_LOG_WARNING, message);
+    }
+
+    g_clear_object (&self->m3u_file);
+  }
 }
 
 static gboolean
@@ -445,10 +515,49 @@ mednafen_core_get_channels (HsCore *core)
   return self->game->soundchan;
 }
 
+static guint
+mednafen_core_get_current_media (HsCore *core)
+{
+  MednafenCore *self = MEDNAFEN_CORE (core);
+
+  return self->current_disc;
+}
+
+static void
+set_media_cb (gpointer data)
+{
+  guint media = GPOINTER_TO_UINT (data);
+
+  Mednafen::MDFNI_SetMedia (0, 2, media, 0);
+
+  core->media_cb_id = 0;
+}
+
+static void
+mednafen_core_set_current_media (HsCore *core, guint media)
+{
+  MednafenCore *self = MEDNAFEN_CORE (core);
+  HsPlatform platform = hs_core_get_platform (core);
+
+  if (platform != HS_PLATFORM_PC_ENGINE_CD)
+    return;
+
+  g_clear_handle_id (&self->media_cb_id, g_source_remove);
+
+  self->current_disc = media;
+  hs_core_notify_current_media (core);
+
+  Mednafen::MDFNI_SetMedia (0, 0, 0, 0);
+
+  self->media_cb_id = g_timeout_add_once (1000, (GSourceOnceFunc) set_media_cb, GUINT_TO_POINTER (media));
+}
+
 static void
 mednafen_core_finalize (GObject *object)
 {
   MednafenCore *self = MEDNAFEN_CORE (core);
+
+  g_clear_handle_id (&self->media_cb_id, g_source_remove);
 
   for (guint i = 0; i < 13; i++)
     g_free (self->input_buffer[i]);
@@ -486,6 +595,9 @@ mednafen_core_class_init (MednafenCoreClass *klass)
 
   core_class->get_sample_rate = mednafen_core_get_sample_rate;
   core_class->get_channels = mednafen_core_get_channels;
+
+  core_class->get_current_media = mednafen_core_get_current_media;
+  core_class->set_current_media = mednafen_core_set_current_media;
 }
 
 static void
@@ -512,7 +624,7 @@ mednafen_pc_engine_core_init (HsPcEngineCoreInterface *iface)
 }
 
 static void
-mednafen_pc_engine_cb_core_set_bios_path (HsPcEngineCdCore *core, const char *path)
+mednafen_pc_engine_cd_core_set_bios_path (HsPcEngineCdCore *core, const char *path)
 {
   MednafenCore *self = MEDNAFEN_CORE (core);
 
@@ -522,7 +634,7 @@ mednafen_pc_engine_cb_core_set_bios_path (HsPcEngineCdCore *core, const char *pa
 static void
 mednafen_pc_engine_cd_core_init (HsPcEngineCdCoreInterface *iface)
 {
-  iface->set_bios_path = mednafen_pc_engine_cb_core_set_bios_path;
+  iface->set_bios_path = mednafen_pc_engine_cd_core_set_bios_path;
 }
 
 static void
