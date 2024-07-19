@@ -376,7 +376,7 @@ mednafen_core_stop (HsCore *core)
   if (self->m3u_file) {
     g_autoptr (GError) error = NULL;
 
-    if (g_file_delete (self->m3u_file, NULL, &error)) {
+    if (!g_file_delete (self->m3u_file, NULL, &error)) {
       g_autofree char *message = g_strdup_printf ("Failed to delete the m3u file: %s", error->message);
       hs_core_log (HS_CORE (core), HS_LOG_WARNING, message);
     }
