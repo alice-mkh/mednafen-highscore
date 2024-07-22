@@ -626,6 +626,9 @@ struct MDFNGI
  void (*LoadCD)(std::vector<CDInterface*> *CDInterfaces);
  bool (*TestMagicCD)(std::vector<CDInterface*> *CDInterfaces);
 
+ // SyncSave() syncs save files without having to close the game.
+ void (*SyncSave)(void);
+
  //
  // CloseGame() must only be called after a matching Load() or LoadCD() completes successfully.  Calling it before Load*(), or after Load*() throws an exception or
  // returns error status, may cause undesirable effects such as nonvolatile memory save game file corruption.

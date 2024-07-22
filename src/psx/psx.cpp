@@ -2154,7 +2154,7 @@ static MDFN_COLD void Cleanup(void)
  cdifs = NULL;
 }
 
-static MDFN_COLD void CloseGame(void)
+static void SyncSave(void)
 {
  if(!psf_loader)
  {
@@ -2175,10 +2175,13 @@ static MDFN_COLD void CloseGame(void)
    }
   }
  }
-
- Cleanup();
 }
 
+static MDFN_COLD void CloseGame(void)
+{
+ SyncSave();
+ Cleanup();
+}
 
 static void SetInput(unsigned port, const char *type, uint8 *ptr)
 {
@@ -2419,6 +2422,7 @@ MDFN_HIDE extern const MDFNGI EmulatedPSX =
  TestMagic,
  LoadCD,
  TestMagicCD,
+ SyncSave,
  CloseGame,
 
  NULL,

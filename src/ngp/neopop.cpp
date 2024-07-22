@@ -224,7 +224,7 @@ static MDFN_COLD void Load(GameFile* gf)
  }
 }
 
-static MDFN_COLD void CloseGame(void)
+static void SyncSave(void)
 {
  try
  {
@@ -234,7 +234,11 @@ static MDFN_COLD void CloseGame(void)
  {
   MDFND_OutputNotice(MDFN_NOTICE_ERROR, e.what());
  }
+}
 
+static MDFN_COLD void CloseGame(void)
+{
+ SyncSave();
  Cleanup();
 }
 
@@ -394,6 +398,7 @@ MDFN_HIDE extern const MDFNGI EmulatedNGP =
  TestMagic,
  NULL,
  NULL,
+ SyncSave,
  CloseGame,
 
  SetLayerEnableMask,

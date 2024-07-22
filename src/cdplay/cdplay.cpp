@@ -565,6 +565,7 @@ MDFN_HIDE extern const MDFNGI EmulatedCDPlay =
  NULL,
  LoadCD,
  TestMagicCD,
+ NULL,
  CloseGame,
 
  NULL,

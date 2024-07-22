@@ -498,10 +498,14 @@ static MDFN_COLD void LoadCD(std::vector<CDInterface*> *CDInterfaces)
  }
 }
 
+static void SyncSave(void)
+{
+ HuC_SaveNV();
+}
 
 static MDFN_COLD void CloseGame(void)
 {
- HuC_SaveNV();
+ SyncSave();
  Cleanup();
 }
 
@@ -699,6 +703,7 @@ MDFN_HIDE extern const MDFNGI EmulatedPCE_Fast =
  TestMagic,
  LoadCD,
  TestMagicCD,
+ SyncSave,
  CloseGame,
 
  VDC_SetLayerEnableMask,

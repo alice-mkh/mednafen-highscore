@@ -226,8 +226,7 @@ static void Cleanup(void)
  }
 }
 
-
-static void CloseGame(void)
+static void SyncSave(void)
 {
  if(!IsWSR)
  {
@@ -240,7 +239,11 @@ static void CloseGame(void)
    MDFND_OutputNotice(MDFN_NOTICE_ERROR, e.what());
   }
  }
+}
 
+static void CloseGame(void)
+{
+ SyncSave();
  Cleanup();
 }
 
@@ -670,6 +673,7 @@ MDFN_HIDE extern const MDFNGI EmulatedWSwan =
  TestMagic,
  NULL,
  NULL,
+ SyncSave,
  CloseGame,
 
  WSwan_SetLayerEnableMask,

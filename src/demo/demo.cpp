@@ -1302,6 +1302,7 @@ MDFN_HIDE extern const MDFNGI EmulatedDEMO =
  TestMagic,
  NULL,
  NULL,
+ NULL,
  CloseGame,
 
  NULL, //SetLayerEnableMask,

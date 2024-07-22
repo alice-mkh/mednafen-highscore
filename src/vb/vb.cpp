@@ -755,7 +755,7 @@ static MDFN_COLD void Load(GameFile* gf)
  }
 }
 
-static MDFN_COLD void CloseGame(void)
+static void SyncSave(void)
 {
  // Only save cart RAM if it has been modified.
  for(unsigned int i = 0; i < GPRAM_Mask + 1; i++)
@@ -769,7 +769,11 @@ static MDFN_COLD void CloseGame(void)
    break;
   }
  }
+}
 
+static MDFN_COLD void CloseGame(void)
+{
+ SyncSave();
  Cleanup();
 }
 
@@ -1040,6 +1044,7 @@ MDFN_HIDE extern const MDFNGI EmulatedVB =
  TestMagic,
  NULL,
  NULL,
+ SyncSave,
  CloseGame,
 
  SetLayerEnableMask,

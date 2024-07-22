@@ -493,31 +493,8 @@ mednafen_core_sync_save (HsCore  *core,
 {
   MednafenCore *self = MEDNAFEN_CORE (core);
 
-  // Unfortunately, Mednafen only saves games on exit, so we have to do trickery
-
-  // Make a temporary savestate
-  g_autofree char *cache_path = hs_core_get_cache_path (core);
-  g_autofree char *tmp_path = g_build_filename (cache_path, "tmp-save-XXXXXX", NULL);
-  tmp_path = g_mkdtemp (tmp_path);
-
-  g_autoptr (GFile) tmp_dir = g_file_new_for_path (tmp_path);
-  g_autoptr (GFile) tmp_save = g_file_get_child (tmp_dir, "savestate");
-  const char *tmp_save_path = g_file_peek_path (tmp_save);
-
-  Mednafen::MDFNI_SaveState (tmp_save_path, "", NULL, NULL, NULL);
-
-  // Close and reopen the game
-  g_autofree char *system_name = g_strdup (self->game->shortname);
-  Mednafen::MDFNI_CloseGame ();
-  self->game = Mednafen::MDFNI_LoadGame (system_name, &::Mednafen::NVFS, self->rom_path);
-
-  // Load the temporary savestate and delete the file
-  Mednafen::MDFNI_LoadState (tmp_save_path, "");
-
-  if (!g_file_delete (tmp_save, NULL, error))
-    return FALSE;
-  if (!g_file_delete (tmp_dir, NULL, error))
-    return FALSE;
+  if (self->game->SyncSave)
+    self->game->SyncSave();
 
   return TRUE;
 }
