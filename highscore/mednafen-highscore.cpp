@@ -276,8 +276,9 @@ const int PCE_BUTTON_MAPPING[] = {
 const int PSX_BUTTON_MAPPING[] = {
   4,  6,  7,  5,  // UP, DOWN, LEFT, RIGHT
   12, 15, 13, 14, // TRIANGLE, SQUARE, CIRCLE, CROSS
-  10, 8,  11, 9,  // L1, L2, R1, R2
-  1,  2,  0,  3,  // L3, R3, SELECT, START
+  10, 8,  1,      // L1, L2, L3
+  11, 9,  2,      // R1, R2, R3
+  0,  3,          // SELECT, START
 };
 
 #define PSX_MODE_SWITCH_MASK (1 << 16)
