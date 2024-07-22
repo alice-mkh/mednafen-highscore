@@ -534,20 +534,7 @@ mednafen_core_get_frame_rate (HsCore *core)
 {
   MednafenCore *self = MEDNAFEN_CORE (core);
 
-  switch (hs_platform_get_base_platform (hs_core_get_platform (core))) {
-  case HS_PLATFORM_NEO_GEO_POCKET:
-    return 60.253016;
-  case HS_PLATFORM_PC_ENGINE:
-    return 59.826105;
-  case HS_PLATFORM_PLAYSTATION:
-    return self->game->fps / 65536.0 / 256.0;
-  case HS_PLATFORM_VIRTUAL_BOY:
-    return 50.273488;
-  case HS_PLATFORM_WONDERSWAN:
-    return 75.471698;
-  default:
-    g_assert_not_reached ();
-  }
+  return self->game->fps / 65536.0 / 256.0;
 }
 
 static double
