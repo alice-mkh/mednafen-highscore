@@ -121,6 +121,41 @@ make_m3u (MednafenCore  *core,
   return ret;
 }
 
+static void
+setup_controllers (MednafenCore *self)
+{
+  HsPlatform platform = hs_core_get_platform (HS_CORE (self));
+  HsPlatform base_platform = hs_platform_get_base_platform (platform);
+
+  switch (base_platform) {
+  case HS_PLATFORM_NEO_GEO_POCKET:
+    self->game->SetInput (0, "gamepad", (uint8_t *) self->input_buffer[0]);
+    break;
+  case HS_PLATFORM_PC_ENGINE:
+    self->game->SetInput (0, "gamepad", (uint8_t *) self->input_buffer[0]);
+    self->game->SetInput (1, "gamepad", (uint8_t *) self->input_buffer[1]);
+    self->game->SetInput (2, "gamepad", (uint8_t *) self->input_buffer[2]);
+    self->game->SetInput (3, "gamepad", (uint8_t *) self->input_buffer[3]);
+    self->game->SetInput (4, "gamepad", (uint8_t *) self->input_buffer[4]);
+    break;
+  case HS_PLATFORM_PLAYSTATION:
+    self->game->SetInput (0, "dualshock", (uint8_t *) self->input_buffer[0]);
+    self->game->SetInput (1, "dualshock", (uint8_t *) self->input_buffer[1]);
+    self->game->SetInput (2, "dualshock", (uint8_t *) self->input_buffer[2]);
+    self->game->SetInput (3, "dualshock", (uint8_t *) self->input_buffer[3]);
+    break;
+  case HS_PLATFORM_VIRTUAL_BOY:
+    self->game->SetInput (0, "gamepad", (uint8_t *) self->input_buffer[0]);
+    self->game->SetInput (1, "misc", (uint8_t *) self->input_buffer[1]); // TODO use this
+    break;
+  case HS_PLATFORM_WONDERSWAN:
+    self->game->SetInput (0, "gamepad", (uint8_t *) self->input_buffer[0]);
+    break;
+  default:
+    g_assert_not_reached ();
+  }
+}
+
 static gboolean
 mednafen_core_load_rom (HsCore      *core,
                         const char **rom_paths,
@@ -221,33 +256,7 @@ mednafen_core_load_rom (HsCore      *core,
                                               self->game->fb_width, self->game->fb_height, self->game->fb_width,
                                               Mednafen::MDFN_PixelFormat::ARGB32_8888);
 
-  switch (base_platform) {
-  case HS_PLATFORM_NEO_GEO_POCKET:
-    self->game->SetInput (0, "gamepad", (uint8_t *) self->input_buffer[0]);
-    break;
-  case HS_PLATFORM_PC_ENGINE:
-    self->game->SetInput (0, "gamepad", (uint8_t *) self->input_buffer[0]);
-    self->game->SetInput (1, "gamepad", (uint8_t *) self->input_buffer[1]);
-    self->game->SetInput (2, "gamepad", (uint8_t *) self->input_buffer[2]);
-    self->game->SetInput (3, "gamepad", (uint8_t *) self->input_buffer[3]);
-    self->game->SetInput (4, "gamepad", (uint8_t *) self->input_buffer[4]);
-    break;
-  case HS_PLATFORM_PLAYSTATION:
-    self->game->SetInput (0, "dualshock", (uint8_t *) self->input_buffer[0]);
-    self->game->SetInput (1, "dualshock", (uint8_t *) self->input_buffer[1]);
-    self->game->SetInput (2, "dualshock", (uint8_t *) self->input_buffer[2]);
-    self->game->SetInput (3, "dualshock", (uint8_t *) self->input_buffer[3]);
-    break;
-  case HS_PLATFORM_VIRTUAL_BOY:
-    self->game->SetInput (0, "gamepad", (uint8_t *) self->input_buffer[0]);
-    self->game->SetInput (1, "misc", (uint8_t *) self->input_buffer[1]); // TODO use this
-    break;
-  case HS_PLATFORM_WONDERSWAN:
-    self->game->SetInput (0, "gamepad", (uint8_t *) self->input_buffer[0]);
-    break;
-  default:
-    g_assert_not_reached ();
-  }
+  setup_controllers (self);
 
   self->rom_path = g_strdup (rom_path);
 
@@ -476,6 +485,7 @@ mednafen_core_reload_save (HsCore      *core,
                            GError    **error)
 {
   MednafenCore *self = MEDNAFEN_CORE (core);
+  HsPlatform platform = hs_core_get_platform (core);
 
   // TODO: For Saturn, add %x to the name
   Mednafen::MDFNI_SetSetting ("filesys.fname_sav", save_path);
@@ -483,6 +493,17 @@ mednafen_core_reload_save (HsCore      *core,
   g_autofree char *system_name = g_strdup (self->game->shortname);
   Mednafen::MDFNI_CloseGame ();
   self->game = Mednafen::MDFNI_LoadGame (system_name, &::Mednafen::NVFS, self->rom_path);
+  if (!self->game) {
+    g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_INTERNAL, "Failed to load game");
+    return FALSE;
+  }
+
+  setup_controllers (self);
+
+  if (platform == HS_PLATFORM_PC_ENGINE_CD ||
+      platform == HS_PLATFORM_PLAYSTATION) {
+    Mednafen::MDFNI_SetMedia (0, 2, self->current_disc, 0);
+  }
 
   return TRUE;
 }
