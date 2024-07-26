@@ -87,6 +87,7 @@ mednafen_source = [
   '../src/demo/demo.cpp',
   '../src/hash/crc.cpp',
   '../src/hash/md5.cpp',
+  '../src/hash/sha1.cpp',
   '../src/hash/sha256.cpp',
   '../src/hw_cpu/v810/v810_cpu.cpp',
   '../src/hw_cpu/v810/v810_fp_ops.cpp',
@@ -110,6 +111,7 @@ mednafen_source = [
   '../src/sound/Fir_Resampler.cpp',
   '../src/sound/OwlResampler.cpp',
   '../src/sound/Stereo_Buffer.cpp',
+  '../src/sound/SwiftResampler.cpp',
   '../src/sound/WAVRecord.cpp',
   '../src/sound/okiadpcm.cpp',
   '../src/string/escape.cpp',
@@ -138,6 +140,7 @@ mednafen_source = [
   '../src/video/resize.cpp',
   '../src/video/surface.cpp',
   '../src/video/tblur.cpp',
+  '../src/ExtMemStream.cpp',
   '../src/FileStream.cpp',
   '../src/IPSPatcher.cpp',
   '../src/MemoryStream.cpp',
@@ -157,6 +160,8 @@ mednafen_source = [
   '../src/settings.cpp',
   '../src/state.cpp',
   '../src/state_rewind.cpp',
+  '../src/tests.cpp',
+  '../src/testsexp.cpp',
 
   '../src/ngp/TLCS-900h/TLCS900h_disassemble.cpp',
   '../src/ngp/TLCS-900h/TLCS900h_disassemble_dst.cpp',
@@ -249,7 +254,6 @@ mednafen_source = [
   'shims/movie.cpp',
   'shims/netplay.cpp',
   'shims/qtrecord.cpp',
-  'shims/tests.cpp',
 ]
 
 mednafen_c_cpp_args = [
@@ -273,6 +277,15 @@ mednafen_c_cpp_args = [
   '-DWANT_PSX_EMU=1',
   '-DWANT_VB_EMU=1',
   '-DWANT_WSWAN_EMU=1',
+  '-DSIZEOF_CHAR=@0@'.format(cc.sizeof('char')),
+  '-DSIZEOF_SHORT=@0@'.format(cc.sizeof('short')),
+  '-DSIZEOF_INT=@0@'.format(cc.sizeof('int')),
+  '-DSIZEOF_LONG=@0@'.format(cc.sizeof('long')),
+  '-DSIZEOF_LONG_LONG=@0@'.format(cc.sizeof('long long')),
+  '-DSIZEOF_OFF_T=@0@'.format(cc.sizeof('off_t')),
+  '-DSIZEOF_PTRDIFF_T=@0@'.format(cc.sizeof('ptrdiff_t')),
+  '-DSIZEOF_SIZE_T=@0@'.format(cc.sizeof('size_t')),
+  '-DSIZEOF_VOID_P=@0@'.format(cc.sizeof('void*')),
 ]
 
 arch = build_machine.cpu_family()
