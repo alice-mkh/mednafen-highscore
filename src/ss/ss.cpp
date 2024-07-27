@@ -1855,6 +1855,17 @@ static MDFN_COLD void LoadCD(std::vector<CDInterface*>* CDInterfaces)
  }
 }
 
+static void SyncSave(void)
+{
+ try { SaveBackupRAM(); } catch(std::exception& e) { MDFND_OutputNotice(MDFN_NOTICE_ERROR, e.what()); }
+ try { SaveCartNV();    } catch(std::exception& e) { MDFND_OutputNotice(MDFN_NOTICE_ERROR, e.what()); }
+
+ if(ActiveCartType == CART_STV)
+  try { SaveSTVEEPROM();} catch(std::exception& e) { MDFND_OutputNotice(MDFN_NOTICE_ERROR, e.what()); }
+
+ try { SaveRTC();	} catch(std::exception& e) { MDFND_OutputNotice(MDFN_NOTICE_ERROR, e.what()); }
+}
+
 static MDFN_COLD void CloseGame(void)
 {
 #ifdef MDFN_ENABLE_DEV_BUILD
@@ -1864,13 +1875,7 @@ static MDFN_COLD void CloseGame(void)
  //
  //
 
- try { SaveBackupRAM(); } catch(std::exception& e) { MDFND_OutputNotice(MDFN_NOTICE_ERROR, e.what()); }
- try { SaveCartNV();    } catch(std::exception& e) { MDFND_OutputNotice(MDFN_NOTICE_ERROR, e.what()); }
-
- if(ActiveCartType == CART_STV)
-  try { SaveSTVEEPROM();} catch(std::exception& e) { MDFND_OutputNotice(MDFN_NOTICE_ERROR, e.what()); }
-
- try { SaveRTC();	} catch(std::exception& e) { MDFND_OutputNotice(MDFN_NOTICE_ERROR, e.what()); }
+ SyncSave();
 
  Cleanup();
 }
@@ -2545,6 +2550,7 @@ MDFN_HIDE extern const MDFNGI EmulatedSS =
  TestMagic,
  LoadCD,
  TestMagicCD,
+ SyncSave,
  CloseGame,
 
  VDP2::SetLayerEnableMask,

@@ -27,15 +27,19 @@ struct _MednafenCore
   GFile *m3u_file;
   char *pce_cd_bios_path;
   char *psx_bios_path[HS_PLAYSTATION_BIOS_N_BIOS];
+  char *ss_bios_path[HS_SEGA_SATURN_BIOS_N_BIOS];
 
   guint current_disc;
   guint media_cb_id;
+
+  int ss_reset_counter;
 };
 
 static void mednafen_neo_geo_pocket_core_init (HsNeoGeoPocketCoreInterface *iface);
 static void mednafen_pc_engine_core_init (HsPcEngineCoreInterface *iface);
 static void mednafen_pc_engine_cd_core_init (HsPcEngineCdCoreInterface *iface);
 static void mednafen_playstation_core_init (HsPlayStationCoreInterface *iface);
+static void mednafen_sega_saturn_core_init (HsSegaSaturnCoreInterface *iface);
 static void mednafen_virtual_boy_core_init (HsVirtualBoyCoreInterface *iface);
 static void mednafen_wonderswan_core_init (HsWonderSwanCoreInterface *iface);
 
@@ -44,6 +48,7 @@ G_DEFINE_FINAL_TYPE_WITH_CODE (MednafenCore, mednafen_core, HS_TYPE_CORE,
                                G_IMPLEMENT_INTERFACE (HS_TYPE_PC_ENGINE_CORE, mednafen_pc_engine_core_init)
                                G_IMPLEMENT_INTERFACE (HS_TYPE_PC_ENGINE_CD_CORE, mednafen_pc_engine_cd_core_init)
                                G_IMPLEMENT_INTERFACE (HS_TYPE_PLAYSTATION_CORE, mednafen_playstation_core_init)
+                               G_IMPLEMENT_INTERFACE (HS_TYPE_SEGA_SATURN_CORE, mednafen_sega_saturn_core_init)
                                G_IMPLEMENT_INTERFACE (HS_TYPE_VIRTUAL_BOY_CORE, mednafen_virtual_boy_core_init)
                                G_IMPLEMENT_INTERFACE (HS_TYPE_WONDERSWAN_CORE, mednafen_wonderswan_core_init))
 
@@ -144,6 +149,11 @@ setup_controllers (MednafenCore *self)
     self->game->SetInput (2, "dualshock", (uint8_t *) self->input_buffer[2]);
     self->game->SetInput (3, "dualshock", (uint8_t *) self->input_buffer[3]);
     break;
+  case HS_PLATFORM_SEGA_SATURN:
+    for (int i = 0; i < 12; i++)
+      self->game->SetInput (i, "gamepad", (uint8_t *) self->input_buffer[i]);
+    self->game->SetInput (12, "builtin", (uint8_t *) self->input_buffer[12]); // reset button status
+    break;
   case HS_PLATFORM_VIRTUAL_BOY:
     self->game->SetInput (0, "gamepad", (uint8_t *) self->input_buffer[0]);
     self->game->SetInput (1, "misc", (uint8_t *) self->input_buffer[1]); // TODO use this
@@ -154,6 +164,106 @@ setup_controllers (MednafenCore *self)
   default:
     g_assert_not_reached ();
   }
+}
+
+static gboolean
+try_migrate_libretro_save (MednafenCore  *self,
+                           const char    *save_path,
+                           GError       **error)
+{
+  HsPlatform platform = hs_core_get_platform (HS_CORE (self));
+  HsPlatform base_platform = hs_platform_get_base_platform (platform);
+
+  if (base_platform == HS_PLATFORM_SEGA_SATURN) {
+    g_autoptr (GFile) save_dir = g_file_new_for_path (save_path);
+    g_autoptr (GFileEnumerator) enumerator = NULL;
+    g_autoptr (GFile) bkr_file = NULL;
+    g_autoptr (GFile) bkr_dest = NULL;
+    g_autoptr (GFile) bcr_file = NULL;
+    g_autoptr (GFile) bcr_dest = NULL;
+    g_autoptr (GFile) arp_file = NULL;
+    g_autoptr (GFile) arp_dest = NULL;
+    g_autoptr (GFile) seep_file = NULL;
+    g_autoptr (GFile) seep_dest = NULL;
+    g_autoptr (GFile) smpc_file = NULL;
+    g_autoptr (GFile) smpc_dest = NULL;
+    GFileInfo *info;
+
+    if (!g_file_query_exists (save_dir, NULL))
+      return TRUE;
+
+    enumerator =
+      g_file_enumerate_children (save_dir, G_FILE_ATTRIBUTE_STANDARD_NAME,
+                                 G_FILE_QUERY_INFO_NONE, NULL, error);
+    if (!enumerator)
+      return FALSE;
+
+    while ((info = g_file_enumerator_next_file (enumerator, NULL, error))) {
+      const char *filename = g_file_info_get_name (info);
+
+      if (g_str_has_suffix (filename, ".bkr") && g_strcmp0 (filename, "save.bkr") && !bkr_file) {
+        bkr_file = g_file_get_child (save_dir, filename);
+        bkr_dest = g_file_get_child (save_dir, "save.bkr");
+      } else if (g_str_has_suffix (filename, ".bcr") && g_strcmp0 (filename, "save.bcr") && !bcr_file) {
+        bcr_file = g_file_get_child (save_dir, filename);
+        bcr_dest = g_file_get_child (save_dir, "save.bcr");
+      } else if (g_str_has_suffix (filename, ".arp") && g_strcmp0 (filename, "save.arp") && !arp_file) {
+        arp_file = g_file_get_child (save_dir, filename);
+        arp_dest = g_file_get_child (save_dir, "save.arp");
+      } else if (g_str_has_suffix (filename, ".seep") && g_strcmp0 (filename, "save.seep") && !seep_file) {
+        seep_file = g_file_get_child (save_dir, filename);
+        seep_dest = g_file_get_child (save_dir, "save.seep");
+      } else if (g_str_has_suffix (filename, ".smpc") && g_strcmp0 (filename, "save.smpc") && !smpc_file) {
+        smpc_file = g_file_get_child (save_dir, filename);
+        smpc_dest = g_file_get_child (save_dir, "save.smpc");
+      }
+
+      g_object_unref (info);
+    }
+
+    if (bkr_file && !g_file_move (bkr_file, bkr_dest, G_FILE_COPY_OVERWRITE, NULL, NULL, NULL, error))
+      return FALSE;
+    if (bcr_file && !g_file_move (bcr_file, bcr_dest, G_FILE_COPY_OVERWRITE, NULL, NULL, NULL, error))
+      return FALSE;
+    if (arp_file && !g_file_move (arp_file, arp_dest, G_FILE_COPY_OVERWRITE, NULL, NULL, NULL, error))
+      return FALSE;
+    if (seep_file && !g_file_move (seep_file, seep_dest, G_FILE_COPY_OVERWRITE, NULL, NULL, NULL, error))
+      return FALSE;
+    if (smpc_file && !g_file_move (smpc_file, smpc_dest, G_FILE_COPY_OVERWRITE, NULL, NULL, NULL, error))
+      return FALSE;
+
+    if (bkr_file || bcr_file || arp_file || seep_file || smpc_file)
+      hs_core_log (HS_CORE (self), HS_LOG_MESSAGE, "Libretro save files migrated successfully");
+
+    return TRUE;
+  }
+
+  return TRUE;
+}
+
+static gboolean
+set_save_path (MednafenCore  *self,
+               const char    *save_path,
+               GError       **error)
+{
+  HsPlatform platform = hs_core_get_platform (HS_CORE (self));
+  HsPlatform base_platform = hs_platform_get_base_platform (platform);
+
+  if (base_platform == HS_PLATFORM_SEGA_SATURN) {
+    g_autofree char *path_with_ext = g_build_filename (save_path, "save.%x", NULL);
+    g_autoptr (GFile) save_dir = g_file_new_for_path (save_path);
+
+    if (!g_file_query_exists (save_dir, NULL) &&
+        !g_file_make_directory_with_parents (save_dir, NULL, error)) {
+      return FALSE;
+    }
+
+    Mednafen::MDFNI_SetSetting ("filesys.fname_sav", path_with_ext);
+    return TRUE;
+  }
+
+  Mednafen::MDFNI_SetSetting ("filesys.fname_sav", save_path);
+  return TRUE;
 }
 
 static gboolean
@@ -168,6 +278,9 @@ mednafen_core_load_rom (HsCore      *core,
   HsPlatform base_platform = hs_platform_get_base_platform (platform);
   const char *rom_path;
 
+  if (!try_migrate_libretro_save (self, save_path, error))
+    return FALSE;
+
   if (!Mednafen::MDFNI_Init ()) {
     g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_INTERNAL, "Failed to initialize Mednafen");
     return FALSE;
@@ -180,8 +293,9 @@ mednafen_core_load_rom (HsCore      *core,
   }
 
   Mednafen::MDFNI_SetSetting ("filesys.path_sav", "");
-  // TODO: For Saturn, add %x to the name
-  Mednafen::MDFNI_SetSetting ("filesys.fname_sav", save_path);
+
+  if (!set_save_path (self, save_path, error))
+    return FALSE;
 
   if (platform == HS_PLATFORM_PC_ENGINE_CD) {
     if (!self->pce_cd_bios_path) {
@@ -203,8 +317,18 @@ mednafen_core_load_rom (HsCore      *core,
     Mednafen::MDFNI_SetSetting ("psx.h_overscan", "0");
   }
 
+  if (platform == HS_PLATFORM_SEGA_SATURN) {
+    if (self->ss_bios_path[HS_SEGA_SATURN_BIOS_JP])
+      Mednafen::MDFNI_SetSetting ("ss.bios_jp", self->ss_bios_path[HS_SEGA_SATURN_BIOS_JP]);
+    if (self->ss_bios_path[HS_SEGA_SATURN_BIOS_US_EU])
+      Mednafen::MDFNI_SetSetting ("ss.bios_na_eu", self->ss_bios_path[HS_SEGA_SATURN_BIOS_US_EU]);
+
+    Mednafen::MDFNI_SetSetting ("ss.h_overscan", "0");
+  }
+
   if (platform == HS_PLATFORM_PC_ENGINE_CD ||
-      platform == HS_PLATFORM_PLAYSTATION) {
+      platform == HS_PLATFORM_PLAYSTATION ||
+      platform == HS_PLATFORM_SEGA_SATURN) {
     if (n_rom_paths > 1) {
       // Make m3u work
       Mednafen::MDFNI_SetSetting ("filesys.untrusted_fip_check", "0");
@@ -234,6 +358,9 @@ mednafen_core_load_rom (HsCore      *core,
   case HS_PLATFORM_PLAYSTATION:
     platform_name = "psx";
     break;
+  case HS_PLATFORM_SEGA_SATURN:
+    platform_name = "ss";
+    break;
   case HS_PLATFORM_VIRTUAL_BOY:
     platform_name = "vb";
     break;
@@ -261,7 +388,8 @@ mednafen_core_load_rom (HsCore      *core,
   self->rom_path = g_strdup (rom_path);
 
   if (platform == HS_PLATFORM_PC_ENGINE_CD ||
-      platform == HS_PLATFORM_PLAYSTATION) {
+      platform == HS_PLATFORM_PLAYSTATION ||
+      platform == HS_PLATFORM_SEGA_SATURN) {
     Mednafen::MDFNI_SetMedia (0, 2, 0, 0);
   }
 
@@ -295,6 +423,13 @@ const int PSX_BUTTON_MAPPING[] = {
 const int PSX_STICK_MAPPING[] = {
   7, 9, // L(x, y)
   3, 5, // R(x, y)
+};
+
+const int SS_BUTTON_MAPPING[] = {
+  4,  5, 6, 7, // UP, DOWN, LEFT, RIGHT
+  10, 8, 9,    // A, B, C
+  2,  1, 0,    // X, Y, Z
+  15, 3, 11,   // L, R, START
 };
 
 const int VB_BUTTON_MAPPING[] = {
@@ -390,6 +525,21 @@ mednafen_core_poll_input (HsCore *core, HsInputState *input_state)
     return;
   }
 
+  if (base_platform == HS_PLATFORM_SEGA_SATURN) {
+    for (int player = 0; player < HS_SEGA_SATURN_MAX_PLAYERS; player++) {
+      uint32 buttons = input_state->saturn.pad_buttons[player];
+
+      for (int btn = 0; btn < HS_SEGA_SATURN_N_BUTTONS; btn++) {
+        if (buttons & 1 << btn)
+          *self->input_buffer[player] |= 1 << SS_BUTTON_MAPPING[btn];
+        else
+          *self->input_buffer[player] &= ~(1 << SS_BUTTON_MAPPING[btn]);
+      }
+    }
+
+    return;
+  }
+
   if (base_platform == HS_PLATFORM_VIRTUAL_BOY) {
     uint32 buttons = input_state->virtual_boy.buttons;
 
@@ -449,11 +599,28 @@ mednafen_core_run_frame (HsCore *core)
   hs_software_context_set_area (self->context, &rect);
 
   hs_core_play_samples (core, self->sound_buffer, spec.SoundBufSize * self->game->soundchan);
+
+  if (hs_core_get_platform (core) == HS_PLATFORM_SEGA_SATURN && self->ss_reset_counter > 0) {
+    self->ss_reset_counter--;
+
+    if (self->ss_reset_counter == 0)
+      *self->input_buffer[12] = 0;
+  }
 }
 
 static void
 mednafen_core_reset (HsCore *core)
 {
+  MednafenCore *self = MEDNAFEN_CORE (core);
+
+  // Saturn has a reset button instead of implementing the usual reset function
+  // This button has to be held for a few frames before releasing
+  if (hs_core_get_platform (core) == HS_PLATFORM_SEGA_SATURN) {
+    *self->input_buffer[12] = 1;
+    self->ss_reset_counter = 3;
+    return;
+  }
+
   Mednafen::MDFNI_Reset ();
 }
 
@@ -487,8 +654,8 @@ mednafen_core_reload_save (HsCore      *core,
   MednafenCore *self = MEDNAFEN_CORE (core);
   HsPlatform platform = hs_core_get_platform (core);
 
-  // TODO: For Saturn, add %x to the name
-  Mednafen::MDFNI_SetSetting ("filesys.fname_sav", save_path);
+  if (!set_save_path (self, save_path, error))
+    return FALSE;
 
   g_autofree char *system_name = g_strdup (self->game->shortname);
   Mednafen::MDFNI_CloseGame ();
@@ -501,7 +668,8 @@ mednafen_core_reload_save (HsCore      *core,
   setup_controllers (self);
 
   if (platform == HS_PLATFORM_PC_ENGINE_CD ||
-      platform == HS_PLATFORM_PLAYSTATION) {
+      platform == HS_PLATFORM_PLAYSTATION ||
+      platform == HS_PLATFORM_SEGA_SATURN) {
     Mednafen::MDFNI_SetMedia (0, 2, self->current_disc, 0);
   }
 
@@ -613,7 +781,8 @@ mednafen_core_set_current_media (HsCore *core, guint media)
   HsPlatform platform = hs_core_get_platform (core);
 
   if (platform != HS_PLATFORM_PC_ENGINE_CD &&
-      platform != HS_PLATFORM_PLAYSTATION) {
+      platform != HS_PLATFORM_PLAYSTATION &&
+      platform != HS_PLATFORM_SEGA_SATURN) {
     return;
   }
 
@@ -642,6 +811,9 @@ mednafen_core_finalize (GObject *object)
 
   for (int i = 0; i < HS_PLAYSTATION_BIOS_N_BIOS; i++)
     g_free (self->psx_bios_path[i]);
+
+  for (int i = 0; i < HS_SEGA_SATURN_BIOS_N_BIOS; i++)
+    g_free (self->ss_bios_path[i]);
 
   core = NULL;
 
@@ -727,6 +899,20 @@ static void
 mednafen_playstation_core_init (HsPlayStationCoreInterface *iface)
 {
   iface->set_bios_path = mednafen_playstation_core_set_bios_path;
+}
+
+static void
+mednafen_sega_saturn_core_set_bios_path (HsSegaSaturnCore *core, HsSegaSaturnBios type, const char *path)
+{
+  MednafenCore *self = MEDNAFEN_CORE (core);
+
+  g_set_str (&self->ss_bios_path[type], path);
+}
+
+static void
+mednafen_sega_saturn_core_init (HsSegaSaturnCoreInterface *iface)
+{
+  iface->set_bios_path = mednafen_sega_saturn_core_set_bios_path;
 }
 
 static void
