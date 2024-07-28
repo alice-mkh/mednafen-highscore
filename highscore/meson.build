@@ -165,6 +165,15 @@ mednafen_source = [
   '../src/tests.cpp',
   '../src/testsexp.cpp',
 
+  '../src/lynx/c65c02.cpp',
+  '../src/lynx/cart.cpp',
+  '../src/lynx/memmap.cpp',
+  '../src/lynx/mikie.cpp',
+  '../src/lynx/ram.cpp',
+  '../src/lynx/rom.cpp',
+  '../src/lynx/susie.cpp',
+  '../src/lynx/system.cpp',
+
   '../src/ngp/TLCS-900h/TLCS900h_disassemble.cpp',
   '../src/ngp/TLCS-900h/TLCS900h_disassemble_dst.cpp',
   '../src/ngp/TLCS-900h/TLCS900h_disassemble_extra.cpp',
@@ -310,6 +319,7 @@ mednafen_c_cpp_args = [
   '-DMEDNAFEN_VERSION="@0@"'.format(mednafen_version),
   '-DMEDNAFEN_VERSION_NUMERIC=@0@'.format(mednafen_version_numeric),
   '-DWANT_68K_EMU=1',
+  '-DWANT_LYNX_EMU=1',
   '-DWANT_NGP_EMU=1',
   '-DWANT_PCE_FAST_EMU=1',
   '-DWANT_PSX_EMU=1',

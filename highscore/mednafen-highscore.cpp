@@ -28,6 +28,7 @@ struct _MednafenCore
   char *pce_cd_bios_path;
   char *psx_bios_path[HS_PLAYSTATION_BIOS_N_BIOS];
   char *ss_bios_path[HS_SEGA_SATURN_BIOS_N_BIOS];
+  char *lynx_bios_path;
 
   guint current_disc;
   guint media_cb_id;
@@ -35,6 +36,7 @@ struct _MednafenCore
   int ss_reset_counter;
 };
 
+static void mednafen_atari_lynx_core_init (HsAtariLynxCoreInterface *iface);
 static void mednafen_neo_geo_pocket_core_init (HsNeoGeoPocketCoreInterface *iface);
 static void mednafen_pc_engine_core_init (HsPcEngineCoreInterface *iface);
 static void mednafen_pc_engine_cd_core_init (HsPcEngineCdCoreInterface *iface);
@@ -44,6 +46,7 @@ static void mednafen_virtual_boy_core_init (HsVirtualBoyCoreInterface *iface);
 static void mednafen_wonderswan_core_init (HsWonderSwanCoreInterface *iface);
 
 G_DEFINE_FINAL_TYPE_WITH_CODE (MednafenCore, mednafen_core, HS_TYPE_CORE,
+                               G_IMPLEMENT_INTERFACE (HS_TYPE_ATARI_LYNX_CORE, mednafen_atari_lynx_core_init)
                                G_IMPLEMENT_INTERFACE (HS_TYPE_NEO_GEO_POCKET_CORE, mednafen_neo_geo_pocket_core_init)
                                G_IMPLEMENT_INTERFACE (HS_TYPE_PC_ENGINE_CORE, mednafen_pc_engine_core_init)
                                G_IMPLEMENT_INTERFACE (HS_TYPE_PC_ENGINE_CD_CORE, mednafen_pc_engine_cd_core_init)
@@ -133,6 +136,9 @@ setup_controllers (MednafenCore *self)
   HsPlatform base_platform = hs_platform_get_base_platform (platform);
 
   switch (base_platform) {
+  case HS_PLATFORM_ATARI_LYNX:
+    self->game->SetInput (0, "gamepad", (uint8_t *) self->input_buffer[0]);
+    break;
   case HS_PLATFORM_NEO_GEO_POCKET:
     self->game->SetInput (0, "gamepad", (uint8_t *) self->input_buffer[0]);
     break;
@@ -335,6 +341,16 @@ mednafen_core_load_rom (HsCore      *core,
   if (!set_save_path (self, save_path, error))
     return FALSE;
 
+  if (platform == HS_PLATFORM_ATARI_LYNX) {
+    if (!self->lynx_bios_path) {
+      g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_BIOS, "Missing Lynx boot ROM");
+      return FALSE;
+    }
+
+    Mednafen::MDFNI_SetSetting ("lynx.bios", self->lynx_bios_path);
+    Mednafen::MDFNI_SetSetting ("lynx.rotateinput", "0");
+  }
+
   if (platform == HS_PLATFORM_PC_ENGINE_CD) {
     if (!self->pce_cd_bios_path) {
       g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_BIOS, "Missing System Card 3.0 BIOS");
@@ -387,6 +403,9 @@ mednafen_core_load_rom (HsCore      *core,
   const char *platform_name;
 
   switch (base_platform) {
+  case HS_PLATFORM_ATARI_LYNX:
+    platform_name = "lynx";
+    break;
   case HS_PLATFORM_NEO_GEO_POCKET:
     platform_name = "ngp";
     break;
@@ -433,6 +452,12 @@ mednafen_core_load_rom (HsCore      *core,
 
   return TRUE;
 }
+
+const int LYNX_BUTTON_MAPPING[] = {
+  6, 7, 4, 5, // UP, DOWN, LEFT, RIGHT
+  0, 1, 3, 2, // A, B, OPTION1, OPTION2
+  8,          // PAUSE
+};
 
 const int NGP_BUTTON_MAPPING[] = {
   0, 1, 2, 3,  // UP, DOWN, LEFT, RIGHT
@@ -489,6 +514,19 @@ mednafen_core_poll_input (HsCore *core, HsInputState *input_state)
   MednafenCore *self = MEDNAFEN_CORE (core);
   HsPlatform platform = hs_core_get_platform (core);
   HsPlatform base_platform = hs_platform_get_base_platform (platform);
+
+  if (base_platform == HS_PLATFORM_ATARI_LYNX) {
+    uint32 buttons = input_state->atari_lynx.buttons;
+
+    for (int btn = 0; btn < HS_ATARI_LYNX_N_BUTTONS; btn++) {
+      if (buttons & 1 << btn)
+        *self->input_buffer[0] |= 1 << LYNX_BUTTON_MAPPING[btn];
+      else
+        *self->input_buffer[0] &= ~(1 << LYNX_BUTTON_MAPPING[btn]);
+    }
+
+    return;
+  }
 
   if (base_platform == HS_PLATFORM_NEO_GEO_POCKET) {
     uint32 buttons = input_state->neo_geo_pocket.buttons;
@@ -845,6 +883,8 @@ mednafen_core_finalize (GObject *object)
     g_free (self->input_buffer[i]);
 
   g_free (self->sound_buffer);
+
+  g_free (self->lynx_bios_path);
   g_free (self->pce_cd_bios_path);
 
   for (int i = 0; i < HS_PLAYSTATION_BIOS_N_BIOS; i++)
@@ -899,6 +939,20 @@ mednafen_core_init (MednafenCore *self)
     self->input_buffer[i] = g_new0 (uint32_t, 9);
 
   self->sound_buffer = g_new0 (int16_t, SOUND_BUFFER_SIZE);
+}
+
+static void
+mednafen_atari_lynx_core_set_bios_path (HsAtariLynxCore *core, const char *path)
+{
+  MednafenCore *self = MEDNAFEN_CORE (core);
+
+  g_set_str (&self->lynx_bios_path, path);
+}
+
+static void
+mednafen_atari_lynx_core_init (HsAtariLynxCoreInterface *iface)
+{
+  iface->set_bios_path = mednafen_atari_lynx_core_set_bios_path;
 }
 
 static void

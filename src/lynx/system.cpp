@@ -98,7 +98,7 @@ CSystem::CSystem(GameFile* gf)
 
 	// Attempt to load the cartridge errors caught above here...
 
-	mRom.reset(new CRom(MDFN_MakeFName(MDFNMKF_FIRMWARE, 0, "lynxboot.img").c_str()));
+	mRom.reset(new CRom(MDFN_MakeFName(MDFNMKF_FIRMWARE, 0, MDFN_GetSettingS("lynx.bios")).c_str()));
 
 	// An exception from this will be caught by the level above
 
@@ -399,6 +399,7 @@ static const MDFNSetting LynxSettings[] =
 {
  { "lynx.rotateinput", MDFNSF_NOFLAGS,	gettext_noop("Virtually rotate the D-pad when the screen is rotated."), NULL, MDFNST_BOOL, "1" },
  { "lynx.lowpass", MDFNSF_CAT_SOUND,	gettext_noop("Enable sound output lowpass filter."), NULL, MDFNST_BOOL, "1" },
+ { "lynx.bios", MDFNSF_EMU_STATE | MDFNSF_CAT_PATH, gettext_noop("Path to the BIOS"), NULL, MDFNST_STRING, "lynxboot.img" },
  { NULL }
 };
 
@@ -456,6 +457,7 @@ MDFN_HIDE extern const MDFNGI EmulatedLynx =
  NULL,
  Load,
  TestMagic,
+ NULL,
  NULL,
  NULL,
  CloseGame,
