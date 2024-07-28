@@ -174,6 +174,43 @@ try_migrate_libretro_save (MednafenCore  *self,
   HsPlatform platform = hs_core_get_platform (HS_CORE (self));
   HsPlatform base_platform = hs_platform_get_base_platform (platform);
 
+  if (base_platform == HS_PLATFORM_PLAYSTATION) {
+    g_autoptr (GFile) save_file = g_file_new_for_path (save_path);
+
+    if (!g_file_query_exists (save_file, NULL))
+      return TRUE;
+
+    if (g_file_query_file_type (save_file, G_FILE_QUERY_INFO_NONE, NULL) == G_FILE_TYPE_DIRECTORY)
+      return TRUE;
+
+    // Make a temporary file
+    g_autofree char *cache_path = hs_core_get_cache_path (HS_CORE (self));
+    g_autofree char *tmp_path = g_build_filename (cache_path, "mednafen-save-XXXXXX", NULL);
+    tmp_path = g_mkdtemp (tmp_path);
+    g_autoptr (GFile) tmp_file = g_file_new_for_path (tmp_path);
+
+    // Move the old save, replace it with a directory
+    g_autoptr (GFile) tmp_save_file = g_file_get_child (tmp_file, "save");
+    if (!g_file_move (save_file, tmp_save_file, G_FILE_COPY_BACKUP, NULL, NULL, NULL, error))
+      return FALSE;
+
+    if (!g_file_make_directory_with_parents (save_file, NULL, error))
+      return FALSE;
+
+    g_autoptr (GFile) dest_file = g_file_get_child (save_file, "save.0.mcr");
+    if (!g_file_move (tmp_save_file, dest_file, G_FILE_COPY_BACKUP, NULL, NULL, NULL, error))
+      return FALSE;
+
+    if (!g_file_delete (tmp_file, NULL, error))
+      return FALSE;
+
+    g_print ("WTF? %s\n", g_file_peek_path (dest_file));
+
+    hs_core_log (HS_CORE (self), HS_LOG_MESSAGE, "Libretro save files migrated successfully");
+
+    return TRUE;
+  }
+
   if (base_platform == HS_PLATFORM_SEGA_SATURN) {
     g_autoptr (GFile) save_dir = g_file_new_for_path (save_path);
     g_autoptr (GFileEnumerator) enumerator = NULL;
@@ -249,7 +286,8 @@ set_save_path (MednafenCore  *self,
   HsPlatform platform = hs_core_get_platform (HS_CORE (self));
   HsPlatform base_platform = hs_platform_get_base_platform (platform);
 
-  if (base_platform == HS_PLATFORM_SEGA_SATURN) {
+  if (base_platform == HS_PLATFORM_PLAYSTATION ||
+      base_platform == HS_PLATFORM_SEGA_SATURN) {
     g_autofree char *path_with_ext = g_build_filename (save_path, "save.%x", NULL);
     g_autoptr (GFile) save_dir = g_file_new_for_path (save_path);
 
