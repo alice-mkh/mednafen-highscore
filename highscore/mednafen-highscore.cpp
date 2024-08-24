@@ -430,21 +430,24 @@ mednafen_core_load_rom (HsCore      *core,
   if (!self->game) {
     if (base_platform == HS_PLATFORM_PLAYSTATION) {
       std::string bios = Mednafen::MDFN_GetSettingS ("psx.used_bios");
-      std::string bios_path = Mednafen::MDFN_GetSettingS (bios);
-      g_autoptr (GFile) file = g_file_new_for_path (bios_path.c_str ());
+      HsPlayStationBios type;
+      const char *region;
 
-      if (!g_file_query_exists (file, NULL)) {
-        const char *region;
+      if (bios == "psx.bios_jp") {
+        type = HS_PLAYSTATION_BIOS_JP;
+        region = "JP";
+      } else if (bios == "psx.bios_na") {
+        type = HS_PLAYSTATION_BIOS_US;
+        region = "US";
+      } else if (bios == "psx.bios_eu") {
+        type = HS_PLAYSTATION_BIOS_EU;
+        region = "EU";
+      } else {
+        g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_INTERNAL, "Unknown BIOS: %s", bios.c_str ());
+        return FALSE;
+      }
 
-        if (bios == "psx.bios_jp")
-          region = "JP";
-        else if (bios == "psx.bios_na")
-          region = "US";
-        else if (bios == "psx.bios_eu")
-          region = "EU";
-        else
-          region = "unknown";
-
+      if (!self->psx_bios_path[type]) {
         g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_BIOS, "Missing Playstation %s BIOS", region);
         return FALSE;
       }
@@ -452,19 +455,21 @@ mednafen_core_load_rom (HsCore      *core,
 
     if (base_platform == HS_PLATFORM_SEGA_SATURN) {
       std::string bios = Mednafen::MDFN_GetSettingS ("ss.used_bios");
-      std::string bios_path = Mednafen::MDFN_GetSettingS (bios);
-      g_autoptr (GFile) file = g_file_new_for_path (bios_path.c_str ());
+      HsSegaSaturnBios type;
+      const char *region;
 
-      if (!g_file_query_exists (file, NULL)) {
-        const char *region;
+      if (bios == "ss.bios_jp") {
+        type = HS_SEGA_SATURN_BIOS_JP;
+        region = "JP";
+      } else if (bios == "ss.bios_na_eu") {
+        type = HS_SEGA_SATURN_BIOS_US_EU;
+        region = "US / EU";
+      } else {
+        g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_INTERNAL, "Unknown BIOS: %s", bios.c_str ());
+        return FALSE;
+      }
 
-        if (bios == "ss.bios_jp")
-          region = "JP";
-        else if (bios == "ss.bios_na_eu")
-          region = "US / EU";
-        else
-          region = "unknown";
-
+      if (!self->ss_bios_path[type]) {
         g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_BIOS, "Missing Sega Saturn %s BIOS", region);
         return FALSE;
       }
