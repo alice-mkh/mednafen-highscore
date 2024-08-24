@@ -1434,6 +1434,8 @@ static void MDFN_COLD InitCommon(unsigned cpucache_emumode, unsigned horrible_ha
    biospath_sname = "ss.bios_na_eu";
  }
 
+ Mednafen::MDFNI_SetSetting("ss.used_bios", biospath_sname);
+
  {
   const std::string biospath = MDFN_MakeFName(MDFNMKF_FIRMWARE, 0, MDFN_GetSettingS(biospath_sname));
   FileStream BIOSFile(biospath, FileStream::MODE_READ);
@@ -2512,6 +2514,8 @@ static const MDFNSetting SSSettings[] =
 
  { "ss.dbg_cem", MDFNSF_SUPPRESS_DOC | MDFNSF_NONPERSISTENT, gettext_noop("Cache emulation mode debug override."), NULL, MDFNST_ENUM, "auto", NULL, NULL, NULL, NULL, CEM_List },
  { "ss.dbg_hh", MDFNSF_SUPPRESS_DOC | MDFNSF_NONPERSISTENT, gettext_noop("Horrible hacks debug override."), NULL, MDFNST_MULTI_ENUM, "auto", NULL, NULL, NULL, NULL, HH_List },
+
+ { "ss.used_bios", MDFNSF_NOFLAGS, "The required bios", NULL, MDFNST_STRING, "" },
 
  { NULL },
 };

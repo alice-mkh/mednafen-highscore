@@ -1770,6 +1770,8 @@ static MDFN_COLD void InitCommon(std::vector<CDInterface*> *CDInterfaces, const 
  else
   abort();
 
+ Mednafen::MDFNI_SetSetting("psx.used_bios", biospath_sname);
+
  {
   std::string biospath = MDFN_MakeFName(MDFNMKF_FIRMWARE, 0, MDFN_GetSettingS(biospath_sname));
   FileStream BIOSFile(biospath, FileStream::MODE_READ);
@@ -2398,6 +2400,8 @@ static const MDFNSetting PSXSettings[] =
 #endif
 
  { "psx.dbg_exe_cdpath", MDFNSF_SUPPRESS_DOC | MDFNSF_CAT_PATH, gettext_noop("CD image to use with .PSX/.EXE loading."), NULL, MDFNST_STRING, "" },
+
+ { "psx.used_bios", MDFNSF_NOFLAGS, "The required bios", NULL, MDFNST_STRING, "" },
 
  { NULL },
 };

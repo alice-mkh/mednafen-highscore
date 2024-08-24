@@ -210,8 +210,6 @@ try_migrate_libretro_save (MednafenCore  *self,
     if (!g_file_delete (tmp_file, NULL, error))
       return FALSE;
 
-    g_print ("WTF? %s\n", g_file_peek_path (dest_file));
-
     hs_core_log (HS_CORE (self), HS_LOG_MESSAGE, "Libretro save files migrated successfully");
 
     return TRUE;
@@ -430,6 +428,48 @@ mednafen_core_load_rom (HsCore      *core,
 
   self->game = Mednafen::MDFNI_LoadGame (platform_name, &::Mednafen::NVFS, rom_path);
   if (!self->game) {
+    if (base_platform == HS_PLATFORM_PLAYSTATION) {
+      std::string bios = Mednafen::MDFN_GetSettingS ("psx.used_bios");
+      std::string bios_path = Mednafen::MDFN_GetSettingS (bios);
+      g_autoptr (GFile) file = g_file_new_for_path (bios_path.c_str ());
+
+      if (!g_file_query_exists (file, NULL)) {
+        const char *region;
+
+        if (bios == "psx.bios_jp")
+          region = "JP";
+        else if (bios == "psx.bios_na")
+          region = "US";
+        else if (bios == "psx.bios_eu")
+          region = "EU";
+        else
+          region = "unknown";
+
+        g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_BIOS, "Missing Playstation %s BIOS", region);
+        return FALSE;
+      }
+    }
+
+    if (base_platform == HS_PLATFORM_SEGA_SATURN) {
+      std::string bios = Mednafen::MDFN_GetSettingS ("ss.used_bios");
+      std::string bios_path = Mednafen::MDFN_GetSettingS (bios);
+      g_autoptr (GFile) file = g_file_new_for_path (bios_path.c_str ());
+
+      if (!g_file_query_exists (file, NULL)) {
+        const char *region;
+
+        if (bios == "ss.bios_jp")
+          region = "JP";
+        else if (bios == "ss.bios_na_eu")
+          region = "US / EU";
+        else
+          region = "unknown";
+
+        g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_BIOS, "Missing Sega Saturn %s BIOS", region);
+        return FALSE;
+      }
+    }
+
     g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_INTERNAL, "Failed to load game");
     return FALSE;
   }
@@ -462,6 +502,8 @@ const int LYNX_BUTTON_MAPPING[] = {
 const int NGP_BUTTON_MAPPING[] = {
   0, 1, 2, 3,  // UP, DOWN, LEFT, RIGHT
   4, 5, 6,     // A, B, OPTION
+
+
 };
 
 const int PCE_BUTTON_MAPPING[] = {
