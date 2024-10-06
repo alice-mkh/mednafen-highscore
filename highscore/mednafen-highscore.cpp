@@ -479,7 +479,7 @@ mednafen_core_load_rom (HsCore      *core,
     return FALSE;
   }
 
-  self->context = hs_core_create_software_context (core, self->game->fb_width, self->game->fb_height, HS_PIXEL_FORMAT_XRGB8888_REV);
+  self->context = hs_core_create_software_context (core, self->game->fb_width, self->game->fb_height, HS_PIXEL_FORMAT_B8G8R8X8);
 
   self->surface = new Mednafen::MDFN_Surface (hs_software_context_get_framebuffer (self->context),
                                               self->game->fb_width, self->game->fb_height, self->game->fb_width,
