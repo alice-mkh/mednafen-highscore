@@ -65,7 +65,7 @@ Mednafen::MDFND_OutputInfo (const char *s) noexcept
   if (message[len - 1] == '\n')
     message[len - 1] = '\0';
 
-  hs_core_log (HS_CORE (core), HS_LOG_INFO, message);
+  hs_core_log_literal (HS_CORE (core), HS_LOG_INFO, message);
 }
 
 void
@@ -87,7 +87,7 @@ Mednafen::MDFND_OutputNotice (MDFN_NoticeType t, const char* s) noexcept
     g_assert_not_reached ();
   }
 
-  hs_core_log (HS_CORE (core), level, s);
+  hs_core_log_literal (HS_CORE (core), level, s);
 }
 
 void
@@ -760,10 +760,8 @@ mednafen_core_stop (HsCore *core)
   if (self->m3u_file) {
     g_autoptr (GError) error = NULL;
 
-    if (!g_file_delete (self->m3u_file, NULL, &error)) {
-      g_autofree char *message = g_strdup_printf ("Failed to delete the m3u file: %s", error->message);
-      hs_core_log (HS_CORE (core), HS_LOG_WARNING, message);
-    }
+    if (!g_file_delete (self->m3u_file, NULL, &error))
+      hs_core_log (HS_CORE (core), HS_LOG_WARNING, "Failed to delete the m3u file: %s", error->message);
 
     g_clear_object (&self->m3u_file);
   }
