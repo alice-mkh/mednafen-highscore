@@ -6,9 +6,6 @@
 #define SOUND_BUFFER_SIZE 0x10000
 #define SAMPLE_RATE 44100
 
-#define PCE_OVERSCAN_TOP 4
-#define PCE_OVERSCAN_BOTTOM 4
-
 static MednafenCore *core;
 
 struct _MednafenCore
@@ -855,12 +852,7 @@ mednafen_core_get_aspect_ratio (HsCore *core)
   if (self->game == NULL)
     return 1;
 
-  switch (hs_platform_get_base_platform (hs_core_get_platform (core))) {
-  case HS_PLATFORM_PC_ENGINE:
-    return 256.0 / (240.0 - PCE_OVERSCAN_TOP - PCE_OVERSCAN_BOTTOM) * 8.0 / 7.0;
-  default:
-    return self->game->nominal_width / (double) self->game->nominal_height;
-  }
+  return self->game->nominal_width / (double) self->game->nominal_height;
 }
 
 static double
