@@ -729,7 +729,7 @@ mednafen_core_run_frame (HsCore *core)
 }
 
 static void
-mednafen_core_reset (HsCore *core)
+mednafen_core_reset (HsCore *core, gboolean hard)
 {
   MednafenCore *self = MEDNAFEN_CORE (core);
 
