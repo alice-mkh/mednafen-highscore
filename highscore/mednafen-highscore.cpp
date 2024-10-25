@@ -869,6 +869,33 @@ mednafen_core_get_channels (HsCore *core)
   return self->game->soundchan;
 }
 
+static HsRegion
+mednafen_core_get_region (HsCore *core)
+{
+  HsPlatform platform = hs_core_get_platform (core);
+  HsPlatform base_platform = hs_platform_get_base_platform (platform);
+
+  switch (base_platform) {
+  case HS_PLATFORM_ATARI_LYNX:
+  case HS_PLATFORM_NEO_GEO_POCKET:
+  case HS_PLATFORM_VIRTUAL_BOY:
+  case HS_PLATFORM_WONDERSWAN:
+    return HS_REGION_UNKNOWN;
+
+
+  case HS_PLATFORM_PC_ENGINE:
+  case HS_PLATFORM_PLAYSTATION:
+  case HS_PLATFORM_SEGA_SATURN:
+    if (mednafen_core_get_frame_rate (core) > 55)
+      return HS_REGION_NTSC;
+    else
+      return HS_REGION_PAL;
+
+  default:
+    g_assert_not_reached ();
+  }
+}
+
 static guint
 mednafen_core_get_current_media (HsCore *core)
 {
@@ -960,6 +987,8 @@ mednafen_core_class_init (MednafenCoreClass *klass)
 
   core_class->get_sample_rate = mednafen_core_get_sample_rate;
   core_class->get_channels = mednafen_core_get_channels;
+
+  core_class->get_region = mednafen_core_get_region;
 
   core_class->get_current_media = mednafen_core_get_current_media;
   core_class->set_current_media = mednafen_core_set_current_media;
