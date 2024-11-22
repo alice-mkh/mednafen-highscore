@@ -6,6 +6,7 @@ mednafen_version='1.32.1'
 mednafen_version_numeric=0x00103201
 
 add_project_arguments([
+  '-Wno-stringop-truncation',
   '-Wno-unused-but-set-variable',
   '-Wno-unused-variable',
   '-std=gnu99',
@@ -13,6 +14,8 @@ add_project_arguments([
 ], language: 'c')
 
 add_project_arguments([
+  '-Wno-address',
+  '-Wno-array-bounds',
   '-Wno-format-overflow',
   '-Wno-implicit-fallthrough',
   '-Wno-missing-field-initializers',
