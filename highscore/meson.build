@@ -4,11 +4,8 @@ project('mednafen-highscore', ['cpp', 'c'],
 
 mednafen_version_numeric=0x00103201
 
-version = run_command('git', 'describe', '--always', '--tags', '--dirty').stdout().strip()
-
-if version == ''
-  version = meson.project_version()
-endif
+version = meson.project_version()
+commit = run_command('git', 'describe', '--always', '--dirty').stdout().strip()
 
 add_project_arguments([
   '-Wno-stringop-truncation',
@@ -330,7 +327,7 @@ mednafen_c_cpp_args = [
   '-DHAVE_WORKING_O_NOFOLLOW=1',
   '-DMDFN_PSS_STYLE=1',
   '-DPTHREAD_AFFINITY_NP=cpu_set_t',
-  '-DMEDNAFEN_VERSION="@0@"'.format(meson.project_version()),
+  '-DMEDNAFEN_VERSION="@0@"'.format(version),
   '-DMEDNAFEN_VERSION_NUMERIC=@0@'.format(mednafen_version_numeric),
   '-DWANT_68K_EMU=1',
   '-DWANT_LYNX_EMU=1',
@@ -552,6 +549,7 @@ shared_library('mednafen-highscore',
 
 descriptor = configuration_data()
 descriptor.set('version', version)
+descriptor.set('commit', commit)
 configure_file(
   input: 'mednafen.highscore.in',
   output: 'mednafen.highscore',
