@@ -1,5 +1,6 @@
 [Highscore]
 Name=Mednafen
+Version=@version@
 Module=mednafen-highscore.so
 Authors=Mednafen Team;
 Copyright=Copyright (C) 2005-2022 Mednafen Team;
