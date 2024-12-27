@@ -4,7 +4,7 @@ project('mednafen-highscore', ['cpp', 'c'],
 
 mednafen_version_numeric=0x00103201
 
-version = run_command('git', 'describe', '--always', '--tags').stdout().strip()
+version = run_command('git', 'describe', '--always', '--tags', '--dirty').stdout().strip()
 
 if version == ''
   version = meson.project_version()
