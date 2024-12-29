@@ -1053,10 +1053,28 @@ mednafen_playstation_core_set_bios_path (HsPlayStationCore *core, HsPlayStationB
   g_set_str (&self->psx_bios_path[type], path);
 }
 
+static HsPlayStationBios
+mednafen_playstation_core_get_used_bios (HsPlayStationCore *core)
+{
+  std::string bios = Mednafen::MDFN_GetSettingS ("psx.used_bios");
+
+  if (bios == "psx.bios_jp")
+    return HS_PLAYSTATION_BIOS_JP;
+
+  if (bios == "psx.bios_na")
+    return HS_PLAYSTATION_BIOS_US;
+
+  if (bios == "psx.bios_eu")
+    return HS_PLAYSTATION_BIOS_EU;
+
+  return HS_PLAYSTATION_BIOS_JP;
+}
+
 static void
 mednafen_playstation_core_init (HsPlayStationCoreInterface *iface)
 {
   iface->set_bios_path = mednafen_playstation_core_set_bios_path;
+  iface->get_used_bios = mednafen_playstation_core_get_used_bios;
 }
 
 static void
@@ -1067,10 +1085,25 @@ mednafen_sega_saturn_core_set_bios_path (HsSegaSaturnCore *core, HsSegaSaturnBio
   g_set_str (&self->ss_bios_path[type], path);
 }
 
+static HsSegaSaturnBios
+mednafen_sega_saturn_core_get_used_bios (HsSegaSaturnCore *core)
+{
+  std::string bios = Mednafen::MDFN_GetSettingS ("ss.used_bios");
+
+  if (bios == "ss.bios_jp")
+    return HS_SEGA_SATURN_BIOS_JP;
+
+  if (bios == "ss.bios_na_eu")
+    return HS_SEGA_SATURN_BIOS_US_EU;
+
+  return HS_SEGA_SATURN_BIOS_JP;
+}
+
 static void
 mednafen_sega_saturn_core_init (HsSegaSaturnCoreInterface *iface)
 {
   iface->set_bios_path = mednafen_sega_saturn_core_set_bios_path;
+  iface->get_used_bios = mednafen_sega_saturn_core_get_used_bios;
 }
 
 static void
