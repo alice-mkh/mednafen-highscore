@@ -31,6 +31,7 @@ struct _MednafenCore
   guint media_cb_id;
 
   int ss_reset_counter;
+  HsSegaSaturnController ss_controller_type[12];
 };
 
 static void mednafen_atari_lynx_core_init (HsAtariLynxCoreInterface *iface);
@@ -153,8 +154,10 @@ setup_controllers (MednafenCore *self)
     self->game->SetInput (3, "dualshock", (uint8_t *) self->input_buffer[3]);
     break;
   case HS_PLATFORM_SEGA_SATURN:
-    for (int i = 0; i < 12; i++)
+    for (int i = 0; i < 12; i++) {
+      self->ss_controller_type[i] = HS_SEGA_SATURN_CONTROL_PAD;
       self->game->SetInput (i, "gamepad", (uint8_t *) self->input_buffer[i]);
+    }
     self->game->SetInput (12, "builtin", (uint8_t *) self->input_buffer[12]); // reset button status
     break;
   case HS_PLATFORM_VIRTUAL_BOY:
@@ -539,6 +542,19 @@ const int SS_BUTTON_MAPPING[] = {
   15, 3, 11,   // L, R, START
 };
 
+const int SS_3D_BUTTON_MAPPING[] = {
+  0, 1, 2, 3,  // UP, DOWN, LEFT, RIGHT
+  6, 4, 5,     // A, B, C
+  10, 9, 8,    // X, Y, Z
+  -1, -1, 7    // L, R, START
+};
+
+#define SS_3D_MODE_SWITCH_MASK (1 << 12)
+#define SS_3D_STICK_X 2
+#define SS_3D_STICK_Y 4
+#define SS_3D_TRIGGER_L 8
+#define SS_3D_TRIGGER_R 6
+
 const int VB_BUTTON_MAPPING[] = {
   9,  8,  7,  6,  // L_UP, L_DOWN, L_LEFT, L_RIGHT
   4,  13, 12, 5,  // R_UP, R_DOWN, R_LEFT, R_RIGHT
@@ -648,12 +664,56 @@ mednafen_core_poll_input (HsCore *core, HsInputState *input_state)
   if (base_platform == HS_PLATFORM_SEGA_SATURN) {
     for (int player = 0; player < HS_SEGA_SATURN_MAX_PLAYERS; player++) {
       uint32 buttons = input_state->saturn.pad_buttons[player];
+      uint8_t *buf = (uint8_t *) self->input_buffer[player];
 
-      for (int btn = 0; btn < HS_SEGA_SATURN_N_BUTTONS; btn++) {
-        if (buttons & 1 << btn)
-          *self->input_buffer[player] |= 1 << SS_BUTTON_MAPPING[btn];
+      if (self->ss_controller_type[player] == HS_SEGA_SATURN_CONTROL_PAD) {
+        for (int btn = 0; btn < HS_SEGA_SATURN_N_BUTTONS; btn++) {
+          if (buttons & 1 << btn)
+            *self->input_buffer[player] |= 1 << SS_BUTTON_MAPPING[btn];
+          else
+            *self->input_buffer[player] &= ~(1 << SS_BUTTON_MAPPING[btn]);
+        }
+      }
+
+      if (self->ss_controller_type[player] == HS_SEGA_SATURN_3D_CONTROL_PAD) {
+        if (input_state->saturn.pad_mode[player] == HS_SEGA_SATURN_3D_PAD_ANALOG)
+          *self->input_buffer[player] |= SS_3D_MODE_SWITCH_MASK;
         else
-          *self->input_buffer[player] &= ~(1 << SS_BUTTON_MAPPING[btn]);
+          *self->input_buffer[player] &= ~SS_3D_MODE_SWITCH_MASK;
+
+        for (int btn = 0; btn < HS_SEGA_SATURN_N_BUTTONS; btn++) {
+          if (SS_3D_BUTTON_MAPPING[btn] < 0)
+            continue;
+
+          if (buttons & 1 << btn)
+            *self->input_buffer[player] |= 1 << SS_3D_BUTTON_MAPPING[btn];
+          else
+            *self->input_buffer[player] &= ~(1 << SS_3D_BUTTON_MAPPING[btn]);
+        }
+
+        double x = input_state->saturn.pad_stick_x[player];
+        double y = input_state->saturn.pad_stick_y[player];
+
+        double multiplier = 1.33;
+        // 30712 / cos(2*pi/8) / 32767 = 1.33
+        if (x < 0)
+          x = -MIN (floor (0.5 + ABS (x) * 32767 * multiplier), 32767);
+        else
+          x = MIN (floor (0.5 + ABS (x) * 32767 * multiplier), 32767);
+
+        if (y < 0)
+          y = -MIN (floor (0.5 + ABS (y) * 32767 * multiplier), 32767);
+        else
+          y = MIN (floor (0.5 + ABS (y) * 32767 * multiplier), 32767);
+
+        Mednafen::MDFN_en16lsb (&buf[SS_3D_STICK_X], x + 32767);
+        Mednafen::MDFN_en16lsb (&buf[SS_3D_STICK_Y], y + 32767);
+
+        double l = input_state->saturn.pad_left_trigger[player];
+        double r = input_state->saturn.pad_right_trigger[player];
+
+        Mednafen::MDFN_en16lsb (&buf[SS_3D_TRIGGER_L], CLAMP(l * 65535, 0, 65535));
+        Mednafen::MDFN_en16lsb (&buf[SS_3D_TRIGGER_R], CLAMP(r * 65535, 0, 65535));
       }
     }
 
@@ -1078,6 +1138,25 @@ mednafen_playstation_core_init (HsPlayStationCoreInterface *iface)
 }
 
 static void
+mednafen_sega_saturn_core_set_controller (HsSegaSaturnCore *core, guint player, HsSegaSaturnController controller)
+{
+  MednafenCore *self = MEDNAFEN_CORE (core);
+
+  self->ss_controller_type[player] = controller;
+
+  switch (controller) {
+  case HS_SEGA_SATURN_CONTROL_PAD:
+    self->game->SetInput (player, "gamepad", (uint8_t *) self->input_buffer[player]);
+    break;
+  case HS_SEGA_SATURN_3D_CONTROL_PAD:
+    self->game->SetInput (player, "3dpad", (uint8_t *) self->input_buffer[player]);
+    break;
+  default:
+    g_assert_not_reached ();
+  }
+}
+
+static void
 mednafen_sega_saturn_core_set_bios_path (HsSegaSaturnCore *core, HsSegaSaturnBios type, const char *path)
 {
   MednafenCore *self = MEDNAFEN_CORE (core);
@@ -1102,6 +1181,7 @@ mednafen_sega_saturn_core_get_used_bios (HsSegaSaturnCore *core)
 static void
 mednafen_sega_saturn_core_init (HsSegaSaturnCoreInterface *iface)
 {
+  iface->set_controller = mednafen_sega_saturn_core_set_controller;
   iface->set_bios_path = mednafen_sega_saturn_core_set_bios_path;
   iface->get_used_bios = mednafen_sega_saturn_core_get_used_bios;
 }
