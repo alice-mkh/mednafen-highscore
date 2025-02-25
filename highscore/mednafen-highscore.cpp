@@ -753,6 +753,7 @@ static void
 mednafen_core_run_frame (HsCore *core)
 {
   MednafenCore *self = MEDNAFEN_CORE (core);
+  HsPlatform platform;
   int32 rects[self->game->fb_height];
 
   memset (rects, 0, self->game->fb_height * sizeof (int32_t));
@@ -780,11 +781,24 @@ mednafen_core_run_frame (HsCore *core)
 
   hs_core_play_samples (core, self->sound_buffer, spec.SoundBufSize * self->game->soundchan);
 
-  if (hs_core_get_platform (core) == HS_PLATFORM_SEGA_SATURN && self->ss_reset_counter > 0) {
+  platform = hs_core_get_platform (core);
+
+  if (platform == HS_PLATFORM_SEGA_SATURN && self->ss_reset_counter > 0) {
     self->ss_reset_counter--;
 
     if (self->ss_reset_counter == 0)
       *self->input_buffer[12] = 0;
+  }
+
+  if (platform == HS_PLATFORM_PLAYSTATION) {
+    for (int player = 0; player < HS_PLAYSTATION_MAX_PLAYERS; player++) {
+      uint8_t *buf = (uint8_t *) self->input_buffer[player];
+
+      double weak_rumble = (double) buf[11] / 255.0;
+      double strong_rumble = (double) buf[12] / 255.0;
+
+      hs_core_rumble (core, player, strong_rumble, weak_rumble, HS_MAX_RUMBLE_DURATION);
+    }
   }
 }
 
