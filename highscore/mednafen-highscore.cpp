@@ -30,6 +30,8 @@ struct _MednafenCore
   guint current_disc;
   guint media_cb_id;
 
+  HsPlayStationController psx_controller_type[4];
+
   int ss_reset_counter;
   HsSegaSaturnController ss_controller_type[12];
 };
@@ -148,10 +150,10 @@ setup_controllers (MednafenCore *self)
     self->game->SetInput (4, "gamepad", (uint8_t *) self->input_buffer[4]);
     break;
   case HS_PLATFORM_PLAYSTATION:
-    self->game->SetInput (0, "dualshock", (uint8_t *) self->input_buffer[0]);
-    self->game->SetInput (1, "dualshock", (uint8_t *) self->input_buffer[1]);
-    self->game->SetInput (2, "dualshock", (uint8_t *) self->input_buffer[2]);
-    self->game->SetInput (3, "dualshock", (uint8_t *) self->input_buffer[3]);
+    for (int i = 0; i < 4; i++) {
+      self->psx_controller_type[i] = HS_PLAYSTATION_STANDARD;
+      self->game->SetInput (i, "gamepad", (uint8_t *) self->input_buffer[i]);
+    }
     break;
   case HS_PLATFORM_SEGA_SATURN:
     for (int i = 0; i < 12; i++) {
@@ -523,6 +525,27 @@ const int PCE_BUTTON_MAPPING[] = {
 const int PSX_BUTTON_MAPPING[] = {
   4,  6,  7,  5,  // UP, DOWN, LEFT, RIGHT
   12, 15, 13, 14, // TRIANGLE, SQUARE, CIRCLE, CROSS
+  10, 8,  -1,     // L1, L2, L3
+  11, 9,  -1,     // R1, R2, R3
+  0,  3,          // SELECT, START
+};
+
+const int PSX_DA_BUTTON_MAPPING[] = {
+  4,  6,  7,  5,  // UP, DOWN, LEFT, RIGHT
+  12, 15, 13, 14, // TRIANGLE, SQUARE, CIRCLE, CROSS
+  10, 8,  1,      // L1, L2, L3
+  11, 9,  2,      // R1, R2, R3
+  0,  3,          // SELECT, START
+};
+
+const int PSX_DA_STICK_MAPPING[] = {
+  6, 8, // L(x, y)
+  2, 4, // R(x, y)
+};
+
+const int PSX_DS_BUTTON_MAPPING[] = {
+  4,  6,  7,  5,  // UP, DOWN, LEFT, RIGHT
+  12, 15, 13, 14, // TRIANGLE, SQUARE, CIRCLE, CROSS
   10, 8,  1,      // L1, L2, L3
   11, 9,  2,      // R1, R2, R3
   0,  3,          // SELECT, START
@@ -530,7 +553,9 @@ const int PSX_BUTTON_MAPPING[] = {
 
 #define PSX_MODE_SWITCH_MASK (1 << 16)
 
-const int PSX_STICK_MAPPING[] = {
+#define PSX_MODE_STATUS_MASK (3 << 17)
+
+const int PSX_DS_STICK_MAPPING[] = {
   7, 9, // L(x, y)
   3, 5, // R(x, y)
 };
@@ -623,38 +648,62 @@ mednafen_core_poll_input (HsCore *core, HsInputState *input_state)
 
   if (base_platform == HS_PLATFORM_PLAYSTATION) {
     for (int player = 0; player < HS_PLAYSTATION_MAX_PLAYERS; player++) {
+      HsPlayStationController controller = self->psx_controller_type[player];
       uint32 buttons = input_state->psx.pad_buttons[player];
       uint8_t *buf = (uint8_t *) self->input_buffer[player];
 
-      for (int btn = 0; btn < HS_PLAYSTATION_N_BUTTONS; btn++) {
-        if (buttons & 1 << btn)
-          *self->input_buffer[player] |= 1 << PSX_BUTTON_MAPPING[btn];
-        else
-          *self->input_buffer[player] &= ~(1 << PSX_BUTTON_MAPPING[btn]);
+      const int *button_mapping, *stick_mapping;
+
+      if (controller == HS_PLAYSTATION_STANDARD) {
+        button_mapping = PSX_BUTTON_MAPPING;
+        stick_mapping = NULL;
+      } else if (controller == HS_PLAYSTATION_DUAL_ANALOG) {
+        button_mapping = PSX_DA_BUTTON_MAPPING;
+        stick_mapping = PSX_DA_STICK_MAPPING;
+      } else if (controller == HS_PLAYSTATION_DUALSHOCK) {
+        button_mapping = PSX_DS_BUTTON_MAPPING;
+        stick_mapping = PSX_DS_STICK_MAPPING;
+      } else {
+        g_assert_not_reached ();
       }
 
-/* TODO
-      *self->input_buffer[player] |= PSX_MODE_SWITCH_MASK;
-*/
+      for (int btn = 0; btn < HS_PLAYSTATION_N_BUTTONS; btn++) {
+        if (button_mapping[btn] < 0)
+          continue;
 
-      for (int stick = 0; stick < HS_PLAYSTATION_N_STICKS; stick++) {
-        double x = input_state->psx.pad_sticks_x[HS_PLAYSTATION_N_STICKS * player + stick];
-        double y = input_state->psx.pad_sticks_y[HS_PLAYSTATION_N_STICKS * player + stick];
-
-        double multiplier = 1.33;
-        // 30712 / cos(2*pi/8) / 32767 = 1.33
-        if (x < 0)
-          x = -MIN (floor (0.5 + ABS (x) * 32767 * multiplier), 32767);
+        if (buttons & 1 << btn)
+          *self->input_buffer[player] |= 1 << button_mapping[btn];
         else
-          x = MIN (floor (0.5 + ABS (x) * 32767 * multiplier), 32767);
+          *self->input_buffer[player] &= ~(1 << button_mapping[btn]);
+      }
 
-        if (y < 0)
-          y = -MIN (floor (0.5 + ABS (y) * 32767 * multiplier), 32767);
-        else
-          y = MIN (floor (0.5 + ABS (y) * 32767 * multiplier), 32767);
+      if (controller == HS_PLAYSTATION_DUALSHOCK) {
+//        *self->input_buffer[player] |= PSX_MODE_SWITCH_MASK;
 
-        Mednafen::MDFN_en16lsb (&buf[PSX_STICK_MAPPING[stick * 2]],     x + 32767);
-        Mednafen::MDFN_en16lsb (&buf[PSX_STICK_MAPPING[stick * 2 + 1]], y + 32767);
+//        if (player == 0)
+//          g_print ("%x\n", *self->input_buffer[player] & PSX_MODE_STATUS_MASK);
+      }
+
+      if (controller == HS_PLAYSTATION_DUAL_ANALOG || controller == HS_PLAYSTATION_DUALSHOCK) {
+        for (int stick = 0; stick < HS_PLAYSTATION_N_STICKS; stick++) {
+          double x = input_state->psx.pad_sticks_x[HS_PLAYSTATION_N_STICKS * player + stick];
+          double y = input_state->psx.pad_sticks_y[HS_PLAYSTATION_N_STICKS * player + stick];
+
+          double multiplier = 1.33;
+          // 30712 / cos(2*pi/8) / 32767 = 1.33
+          if (x < 0)
+            x = -MIN (floor (0.5 + ABS (x) * 32767 * multiplier), 32767);
+          else
+            x = MIN (floor (0.5 + ABS (x) * 32767 * multiplier), 32767);
+
+          if (y < 0)
+            y = -MIN (floor (0.5 + ABS (y) * 32767 * multiplier), 32767);
+          else
+            y = MIN (floor (0.5 + ABS (y) * 32767 * multiplier), 32767);
+
+          Mednafen::MDFN_en16lsb (&buf[stick_mapping[stick * 2]],     x + 32767);
+          Mednafen::MDFN_en16lsb (&buf[stick_mapping[stick * 2 + 1]], y + 32767);
+        }
       }
     }
 
@@ -1120,6 +1169,28 @@ mednafen_pc_engine_cd_core_init (HsPcEngineCdCoreInterface *iface)
 }
 
 static void
+mednafen_playstation_core_set_controller (HsPlayStationCore *core, guint player, HsPlayStationController controller)
+{
+  MednafenCore *self = MEDNAFEN_CORE (core);
+
+  self->psx_controller_type[player] = controller;
+
+  switch (controller) {
+  case HS_PLAYSTATION_STANDARD:
+    self->game->SetInput (player, "gamepad", (uint8_t *) self->input_buffer[player]);
+    break;
+  case HS_PLAYSTATION_DUAL_ANALOG:
+    self->game->SetInput (player, "dualanalog", (uint8_t *) self->input_buffer[player]);
+    break;
+  case HS_PLAYSTATION_DUALSHOCK:
+    self->game->SetInput (player, "dualshock", (uint8_t *) self->input_buffer[player]);
+    break;
+  default:
+    g_assert_not_reached ();
+  }
+}
+
+static void
 mednafen_playstation_core_set_bios_path (HsPlayStationCore *core, HsPlayStationBios type, const char *path)
 {
   MednafenCore *self = MEDNAFEN_CORE (core);
@@ -1147,6 +1218,7 @@ mednafen_playstation_core_get_used_bios (HsPlayStationCore *core)
 static void
 mednafen_playstation_core_init (HsPlayStationCoreInterface *iface)
 {
+  iface->set_controller = mednafen_playstation_core_set_controller;
   iface->set_bios_path = mednafen_playstation_core_set_bios_path;
   iface->get_used_bios = mednafen_playstation_core_get_used_bios;
 }
