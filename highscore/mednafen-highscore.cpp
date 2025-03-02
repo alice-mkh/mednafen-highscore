@@ -30,7 +30,6 @@ struct _MednafenCore
   guint current_disc;
   guint media_cb_id;
 
-  HsPlayStationController psx_controller_type[4];
   gboolean psx_ds_analog[4];
 
   int ss_reset_counter;
@@ -152,8 +151,7 @@ setup_controllers (MednafenCore *self)
     break;
   case HS_PLATFORM_PLAYSTATION:
     for (int i = 0; i < 4; i++) {
-      self->psx_controller_type[i] = HS_PLAYSTATION_STANDARD;
-      self->game->SetInput (i, "gamepad", (uint8_t *) self->input_buffer[i]);
+      self->game->SetInput (i, "dualshock", (uint8_t *) self->input_buffer[i]);
     }
     break;
   case HS_PLATFORM_SEGA_SATURN:
@@ -526,14 +524,6 @@ const int PCE_BUTTON_MAPPING[] = {
 const int PSX_BUTTON_MAPPING[] = {
   4,  6,  7,  5,  // UP, DOWN, LEFT, RIGHT
   12, 15, 13, 14, // TRIANGLE, SQUARE, CIRCLE, CROSS
-  10, 8,  -1,     // L1, L2, L3
-  11, 9,  -1,     // R1, R2, R3
-  0,  3,          // SELECT, START
-};
-
-const int PSX_DS_BUTTON_MAPPING[] = {
-  4,  6,  7,  5,  // UP, DOWN, LEFT, RIGHT
-  12, 15, 13, 14, // TRIANGLE, SQUARE, CIRCLE, CROSS
   10, 8,  1,      // L1, L2, L3
   11, 9,  2,      // R1, R2, R3
   0,  3,          // SELECT, START
@@ -544,7 +534,7 @@ const int PSX_DS_BUTTON_MAPPING[] = {
 #define PSX_LOCKED_STATUS_MASK (1 << 18)
 #define PSX_MODE_STATUS_MASK (1 << 17)
 
-const int PSX_DS_STICK_MAPPING[] = {
+const int PSX_STICK_MAPPING[] = {
   7, 9, // L(x, y)
   3, 5, // R(x, y)
 };
@@ -637,21 +627,13 @@ mednafen_core_poll_input (HsCore *core, HsInputState *input_state)
 
   if (base_platform == HS_PLATFORM_PLAYSTATION) {
     for (int player = 0; player < HS_PLAYSTATION_MAX_PLAYERS; player++) {
-      HsPlayStationController controller = self->psx_controller_type[player];
       uint32 buttons = input_state->psx.pad_buttons[player];
       uint8_t *buf = (uint8_t *) self->input_buffer[player];
 
       const int *button_mapping, *stick_mapping;
 
-      if (controller == HS_PLAYSTATION_STANDARD) {
-        button_mapping = PSX_BUTTON_MAPPING;
-        stick_mapping = NULL;
-      } else if (controller == HS_PLAYSTATION_DUALSHOCK) {
-        button_mapping = PSX_DS_BUTTON_MAPPING;
-        stick_mapping = PSX_DS_STICK_MAPPING;
-      } else {
-        g_assert_not_reached ();
-      }
+      button_mapping = PSX_BUTTON_MAPPING;
+      stick_mapping = PSX_STICK_MAPPING;
 
       for (int btn = 0; btn < HS_PLAYSTATION_N_BUTTONS; btn++) {
         if (button_mapping[btn] < 0)
@@ -663,31 +645,29 @@ mednafen_core_poll_input (HsCore *core, HsInputState *input_state)
           *self->input_buffer[player] &= ~(1 << button_mapping[btn]);
       }
 
-      if (controller == HS_PLAYSTATION_DUALSHOCK) {
-        gboolean is_analog = (*self->input_buffer[player] & PSX_MODE_STATUS_MASK) > 0;
+      gboolean is_analog = (*self->input_buffer[player] & PSX_MODE_STATUS_MASK) > 0;
 
-        if (is_analog != self->psx_ds_analog[player])
-          *self->input_buffer[player] |= PSX_MODE_SWITCH_MASK;
+      if (is_analog != self->psx_ds_analog[player])
+        *self->input_buffer[player] |= PSX_MODE_SWITCH_MASK;
 
-        for (int stick = 0; stick < HS_PLAYSTATION_N_STICKS; stick++) {
-          double x = input_state->psx.pad_sticks_x[HS_PLAYSTATION_N_STICKS * player + stick];
-          double y = input_state->psx.pad_sticks_y[HS_PLAYSTATION_N_STICKS * player + stick];
+      for (int stick = 0; stick < HS_PLAYSTATION_N_STICKS; stick++) {
+        double x = input_state->psx.pad_sticks_x[HS_PLAYSTATION_N_STICKS * player + stick];
+        double y = input_state->psx.pad_sticks_y[HS_PLAYSTATION_N_STICKS * player + stick];
 
-          double multiplier = 1.33;
-          // 30712 / cos(2*pi/8) / 32767 = 1.33
-          if (x < 0)
-            x = -MIN (floor (0.5 + ABS (x) * 32767 * multiplier), 32767);
-          else
-            x = MIN (floor (0.5 + ABS (x) * 32767 * multiplier), 32767);
+        double multiplier = 1.33;
+        // 30712 / cos(2*pi/8) / 32767 = 1.33
+        if (x < 0)
+          x = -MIN (floor (0.5 + ABS (x) * 32767 * multiplier), 32767);
+        else
+          x = MIN (floor (0.5 + ABS (x) * 32767 * multiplier), 32767);
 
-          if (y < 0)
-            y = -MIN (floor (0.5 + ABS (y) * 32767 * multiplier), 32767);
-          else
-            y = MIN (floor (0.5 + ABS (y) * 32767 * multiplier), 32767);
+        if (y < 0)
+          y = -MIN (floor (0.5 + ABS (y) * 32767 * multiplier), 32767);
+        else
+          y = MIN (floor (0.5 + ABS (y) * 32767 * multiplier), 32767);
 
-          Mednafen::MDFN_en16lsb (&buf[stick_mapping[stick * 2]],     x + 32767);
-          Mednafen::MDFN_en16lsb (&buf[stick_mapping[stick * 2 + 1]], y + 32767);
-        }
+        Mednafen::MDFN_en16lsb (&buf[stick_mapping[stick * 2]],     x + 32767);
+        Mednafen::MDFN_en16lsb (&buf[stick_mapping[stick * 2 + 1]], y + 32767);
       }
     }
 
@@ -826,25 +806,21 @@ mednafen_core_run_frame (HsCore *core)
   if (platform == HS_PLATFORM_PLAYSTATION) {
     for (int player = 0; player < HS_PLAYSTATION_MAX_PLAYERS; player++) {
       uint8_t *buf = (uint8_t *) self->input_buffer[player];
-      HsPlayStationController controller = self->psx_controller_type[player];
+      gboolean is_analog = (*self->input_buffer[player] & PSX_MODE_STATUS_MASK) > 0;
 
-      if (controller == HS_PLAYSTATION_DUALSHOCK) {
-        gboolean is_analog = (*self->input_buffer[player] & PSX_MODE_STATUS_MASK) > 0;
+      if ((*self->input_buffer[player] & PSX_MODE_SWITCH_MASK) > 0)
+        *self->input_buffer[player] &= ~PSX_MODE_SWITCH_MASK;
 
-        if ((*self->input_buffer[player] & PSX_MODE_SWITCH_MASK) > 0)
-          *self->input_buffer[player] &= ~PSX_MODE_SWITCH_MASK;
+      if (self->psx_ds_analog[player] != is_analog) {
+        self->psx_ds_analog[player] = is_analog;
 
-        if (self->psx_ds_analog[player] != is_analog) {
-          self->psx_ds_analog[player] = is_analog;
-
-          hs_playstation_core_emit_dualshock_mode_changed (HS_PLAYSTATION_CORE (self), player);
-        }
-
-        double weak_rumble = (double) buf[11] / 255.0;
-        double strong_rumble = (double) buf[12] / 255.0;
-
-        hs_core_rumble (core, player, strong_rumble, weak_rumble, HS_MAX_RUMBLE_DURATION);
+        hs_playstation_core_emit_dualshock_mode_changed (HS_PLAYSTATION_CORE (self), player);
       }
+
+      double weak_rumble = (double) buf[11] / 255.0;
+      double strong_rumble = (double) buf[12] / 255.0;
+
+      hs_core_rumble (core, player, strong_rumble, weak_rumble, HS_MAX_RUMBLE_DURATION);
     }
   }
 }
@@ -1166,32 +1142,10 @@ mednafen_pc_engine_cd_core_init (HsPcEngineCdCoreInterface *iface)
   iface->set_bios_path = mednafen_pc_engine_cd_core_set_bios_path;
 }
 
-static void
-mednafen_playstation_core_set_controller (HsPlayStationCore *core, guint player, HsPlayStationController controller)
-{
-  MednafenCore *self = MEDNAFEN_CORE (core);
-
-  self->psx_controller_type[player] = controller;
-
-  switch (controller) {
-  case HS_PLAYSTATION_STANDARD:
-    self->game->SetInput (player, "gamepad", (uint8_t *) self->input_buffer[player]);
-    break;
-  case HS_PLAYSTATION_DUALSHOCK:
-    self->game->SetInput (player, "dualshock", (uint8_t *) self->input_buffer[player]);
-    break;
-  default:
-    g_assert_not_reached ();
-  }
-}
-
 HsPlayStationDualShockMode
 mednafen_playstation_core_get_dualshock_mode (HsPlayStationCore *core, guint player)
 {
   MednafenCore *self = MEDNAFEN_CORE (core);
-
-  if (self->psx_controller_type[player] != HS_PLAYSTATION_DUALSHOCK)
-    return HS_PLAYSTATION_DUALSHOCK_DIGITAL;
 
   return self->psx_ds_analog[player] ? HS_PLAYSTATION_DUALSHOCK_ANALOG : HS_PLAYSTATION_DUALSHOCK_DIGITAL;
 }
@@ -1200,9 +1154,6 @@ gboolean
 mednafen_playstation_core_set_dualshock_mode (HsPlayStationCore *core, guint player, HsPlayStationDualShockMode mode)
 {
   MednafenCore *self = MEDNAFEN_CORE (core);
-
-  if (self->psx_controller_type[player] != HS_PLAYSTATION_DUALSHOCK)
-    return FALSE;
 
   if ((*self->input_buffer[player] & PSX_LOCKED_STATUS_MASK) > 0)
     return FALSE;
@@ -1239,7 +1190,6 @@ mednafen_playstation_core_get_used_bios (HsPlayStationCore *core)
 static void
 mednafen_playstation_core_init (HsPlayStationCoreInterface *iface)
 {
-  iface->set_controller = mednafen_playstation_core_set_controller;
   iface->get_dualshock_mode = mednafen_playstation_core_get_dualshock_mode;
   iface->set_dualshock_mode = mednafen_playstation_core_set_dualshock_mode;
   iface->set_bios_path = mednafen_playstation_core_set_bios_path;
