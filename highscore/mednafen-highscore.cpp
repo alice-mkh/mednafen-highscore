@@ -707,20 +707,8 @@ mednafen_core_poll_input (HsCore *core, HsInputState *input_state)
         double x = input_state->saturn.pad_stick_x[player];
         double y = input_state->saturn.pad_stick_y[player];
 
-        double multiplier = 1.33;
-        // 30712 / cos(2*pi/8) / 32767 = 1.33
-        if (x < 0)
-          x = -MIN (floor (0.5 + ABS (x) * 32767 * multiplier), 32767);
-        else
-          x = MIN (floor (0.5 + ABS (x) * 32767 * multiplier), 32767);
-
-        if (y < 0)
-          y = -MIN (floor (0.5 + ABS (y) * 32767 * multiplier), 32767);
-        else
-          y = MIN (floor (0.5 + ABS (y) * 32767 * multiplier), 32767);
-
-        Mednafen::MDFN_en16lsb (&buf[SS_3D_STICK_X], x + 32767);
-        Mednafen::MDFN_en16lsb (&buf[SS_3D_STICK_Y], y + 32767);
+        Mednafen::MDFN_en16lsb (&buf[SS_3D_STICK_X], (1 + x) * 32767);
+        Mednafen::MDFN_en16lsb (&buf[SS_3D_STICK_Y], (1 + y) * 32767);
 
         double l = input_state->saturn.pad_left_trigger[player];
         double r = input_state->saturn.pad_right_trigger[player];
