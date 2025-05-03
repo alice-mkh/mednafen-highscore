@@ -34,6 +34,8 @@ struct _MednafenCore
 
   int ss_reset_counter;
   HsSegaSaturnController ss_controller_type[12];
+
+  int colorburst_phase;
 };
 
 static void mednafen_atari_lynx_core_init (HsAtariLynxCoreInterface *iface);
@@ -754,7 +756,8 @@ static void
 mednafen_core_run_frame (HsCore *core)
 {
   MednafenCore *self = MEDNAFEN_CORE (core);
-  HsPlatform platform;
+  HsPlatform platform = hs_core_get_platform (core);
+  HsPlatform base_platform = hs_platform_get_base_platform (platform);
   int32 rects[self->game->fb_height];
 
   memset (rects, 0, self->game->fb_height * sizeof (int32_t));
@@ -780,18 +783,24 @@ mednafen_core_run_frame (HsCore *core)
   HsRectangle rect = { spec.DisplayRect.x, spec.DisplayRect.y, width, spec.DisplayRect.h };
   hs_software_context_set_area (self->context, &rect);
 
+  if (base_platform == HS_PLATFORM_PLAYSTATION ||
+      base_platform == HS_PLATFORM_SEGA_SATURN ||
+      base_platform == HS_PLATFORM_PC_ENGINE) {
+    self->colorburst_phase ^= 1;
+
+    hs_software_context_set_colorburst_phase (self->context, self->colorburst_phase);
+  }
+
   hs_core_play_samples (core, self->sound_buffer, spec.SoundBufSize * self->game->soundchan);
 
-  platform = hs_core_get_platform (core);
-
-  if (platform == HS_PLATFORM_SEGA_SATURN && self->ss_reset_counter > 0) {
+  if (base_platform == HS_PLATFORM_SEGA_SATURN && self->ss_reset_counter > 0) {
     self->ss_reset_counter--;
 
     if (self->ss_reset_counter == 0)
       *self->input_buffer[12] = 0;
   }
 
-  if (platform == HS_PLATFORM_PLAYSTATION) {
+  if (base_platform == HS_PLATFORM_PLAYSTATION) {
     for (int player = 0; player < HS_PLAYSTATION_MAX_PLAYERS; player++) {
       uint8_t *buf = (uint8_t *) self->input_buffer[player];
       gboolean is_analog = (*self->input_buffer[player] & PSX_MODE_STATUS_MASK) > 0;
