@@ -36,6 +36,12 @@ struct _MednafenCore
   HsSegaSaturnController ss_controller_type[12];
 
   int colorburst_phase;
+
+  int top_overscan_n;
+  int bottom_overscan_n;
+
+  int top_overscan_p;
+  int bottom_overscan_p;
 };
 
 static void mednafen_atari_lynx_core_init (HsAtariLynxCoreInterface *iface);
@@ -352,6 +358,17 @@ mednafen_core_load_rom (HsCore      *core,
     Mednafen::MDFNI_SetSetting ("lynx.rotateinput", "0");
   }
 
+  if (base_platform == HS_PLATFORM_PC_ENGINE) {
+    Mednafen::MDFNI_SetSetting ("pce_fast.slstart", "0");
+    Mednafen::MDFNI_SetSetting ("pce_fast.slend", "239");
+
+    self->top_overscan_n = 4;
+    self->bottom_overscan_n = 4;
+
+    self->top_overscan_p = 4;
+    self->bottom_overscan_p = 4;
+  }
+
   if (platform == HS_PLATFORM_PC_ENGINE_CD) {
     if (!self->pce_cd_bios_path) {
       g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_BIOS, "Missing System Card 3.0 BIOS");
@@ -379,6 +396,12 @@ mednafen_core_load_rom (HsCore      *core,
       Mednafen::MDFNI_SetSetting ("ss.bios_na_eu", self->ss_bios_path[HS_SEGA_SATURN_BIOS_US_EU]);
 
     Mednafen::MDFNI_SetSetting ("ss.h_overscan", "0");
+
+    Mednafen::MDFNI_SetSetting ("ss.slstartp", "0");
+    Mednafen::MDFNI_SetSetting ("ss.slendp", "271");
+
+    self->top_overscan_p = 0;
+    self->bottom_overscan_p = 16;
   }
 
   if (platform == HS_PLATFORM_PC_ENGINE_CD ||
@@ -789,6 +812,13 @@ mednafen_core_run_frame (HsCore *core)
     self->colorburst_phase ^= 1;
 
     hs_software_context_set_colorburst_phase (self->context, self->colorburst_phase);
+
+    HsBorder overscan;
+    if (hs_core_get_region (core) > HS_REGION_PAL)
+      hs_border_init_full (&overscan, self->top_overscan_p, self->bottom_overscan_p, 0, 0);
+    else
+      hs_border_init_full (&overscan, self->top_overscan_n, self->bottom_overscan_n, 0, 0);
+    hs_software_context_set_overscan (self->context, &overscan);
   }
 
   hs_core_play_samples (core, self->sound_buffer, spec.SoundBufSize * self->game->soundchan);
