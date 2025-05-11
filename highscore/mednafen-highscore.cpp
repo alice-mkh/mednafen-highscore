@@ -344,6 +344,7 @@ mednafen_core_load_rom (HsCore      *core,
   }
 
   Mednafen::MDFNI_SetSetting ("filesys.path_sav", "");
+  Mednafen::MDFNI_SetSetting ("video.deinterlacer", "weave");
 
   if (!set_save_path (self, save_path, error))
     return FALSE;
@@ -809,9 +810,6 @@ mednafen_core_run_frame (HsCore *core)
   if (base_platform == HS_PLATFORM_PLAYSTATION ||
       base_platform == HS_PLATFORM_SEGA_SATURN ||
       base_platform == HS_PLATFORM_PC_ENGINE) {
-    self->colorburst_phase ^= 1;
-
-    hs_software_context_set_colorburst_phase (self->context, self->colorburst_phase);
 
     HsBorder overscan;
     if (hs_core_get_region (core) > HS_REGION_PAL)
@@ -819,6 +817,19 @@ mednafen_core_run_frame (HsCore *core)
     else
       hs_border_init_full (&overscan, self->top_overscan_n, self->bottom_overscan_n, 0, 0);
     hs_software_context_set_overscan (self->context, &overscan);
+
+    HsInterlacingMode mode;
+
+    if (spec.InterlaceOn)
+      mode = spec.InterlaceField ? HS_INTERLACING_EVEN_FIELD : HS_INTERLACING_ODD_FIELD;
+    else
+      mode = HS_INTERLACING_NONE;
+
+    hs_software_context_set_interlacing (self->context, mode);
+    hs_software_context_set_colorburst_phase (self->context, self->colorburst_phase);
+
+    if (mode != HS_INTERLACING_ODD_FIELD)
+      self->colorburst_phase ^= 1;
   }
 
   hs_core_play_samples (core, self->sound_buffer, spec.SoundBufSize * self->game->soundchan);
