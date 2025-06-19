@@ -200,6 +200,12 @@ try_migrate_libretro_save (MednafenCore  *self,
 
     // Make a temporary file
     g_autofree char *cache_path = hs_core_get_cache_path (HS_CORE (self));
+    g_autoptr (GFile) cache_dir = g_file_new_for_path (cache_path);
+    if (!g_file_query_exists (cache_dir, NULL) &&
+        !g_file_make_directory_with_parents (cache_dir, NULL, error)) {
+      return FALSE;
+    }
+
     g_autofree char *tmp_path = g_build_filename (cache_path, "mednafen-save-XXXXXX", NULL);
     tmp_path = g_mkdtemp (tmp_path);
     g_autoptr (GFile) tmp_file = g_file_new_for_path (tmp_path);
