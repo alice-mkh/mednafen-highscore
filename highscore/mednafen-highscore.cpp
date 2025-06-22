@@ -16,6 +16,7 @@ struct _MednafenCore
   Mednafen::MDFN_Surface *surface;
 
   HsSoftwareContext *context;
+  uint8_t *frame_buffer;
 
   uint32_t *input_buffer[13];
   int16_t *sound_buffer;
@@ -513,8 +514,9 @@ mednafen_core_load_rom (HsCore      *core,
   }
 
   self->context = hs_core_create_software_context (core, self->game->fb_width, self->game->fb_height, HS_PIXEL_FORMAT_B8G8R8X8);
+  self->frame_buffer = g_new0 (guint8, self->game->fb_width * self->game->fb_height * 4);
 
-  self->surface = new Mednafen::MDFN_Surface (hs_software_context_get_framebuffer (self->context),
+  self->surface = new Mednafen::MDFN_Surface (self->frame_buffer,
                                               self->game->fb_width, self->game->fb_height, self->game->fb_width,
                                               Mednafen::MDFN_PixelFormat::ARGB32_8888);
 
@@ -789,6 +791,7 @@ mednafen_core_run_frame (HsCore *core)
   HsPlatform platform = hs_core_get_platform (core);
   HsPlatform base_platform = hs_platform_get_base_platform (platform);
   int32 rects[self->game->fb_height];
+  void *fb;
 
   memset (rects, 0, self->game->fb_height * sizeof (int32_t));
   rects[0] = ~0;
@@ -803,6 +806,10 @@ mednafen_core_run_frame (HsCore *core)
   spec.soundmultiplier = 1.0;
 
   Mednafen::MDFNI_Emulate (&spec);
+
+  fb = hs_software_context_acquire_framebuffer (self->context);
+  memcpy (fb, self->frame_buffer, self->game->fb_width * self->game->fb_height * 4);
+  hs_software_context_release_framebuffer (self->context);
 
   int width = 0;
   if (self->game->multires)
@@ -903,6 +910,8 @@ mednafen_core_stop (HsCore *core)
 
     g_clear_object (&self->m3u_file);
   }
+
+  g_clear_pointer (&self->frame_buffer, g_free);
 }
 
 static gboolean
