@@ -6,5 +6,5 @@ Module=mednafen-highscore.so
 Authors=Mednafen Team;
 Copyright=Copyright (C) 2005-2022 Mednafen Team;
 Website=https://mednafen.github.io/
-License=GPL-2.0-only
+License=GPL-2.0-or-later
 Platforms=AtariLynx;NeoGeoPocket;PcEngine;PcEngineCD;PlayStation;SegaSaturn;VirtualBoy;WonderSwan;
