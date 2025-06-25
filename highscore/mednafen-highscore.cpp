@@ -876,8 +876,8 @@ mednafen_core_run_frame (HsCore *core)
   }
 }
 
-static void
-mednafen_core_reset (HsCore *core, gboolean hard)
+static gboolean
+mednafen_core_reset (HsCore *core, gboolean hard, GError **error)
 {
   MednafenCore *self = MEDNAFEN_CORE (core);
 
@@ -886,10 +886,11 @@ mednafen_core_reset (HsCore *core, gboolean hard)
   if (hs_core_get_platform (core) == HS_PLATFORM_SEGA_SATURN) {
     *self->input_buffer[12] = 1;
     self->ss_reset_counter = 3;
-    return;
+    return TRUE;
   }
 
   Mednafen::MDFNI_Reset ();
+  return TRUE;
 }
 
 static void
