@@ -32,7 +32,8 @@ add_project_arguments([
 cc = meson.get_compiler('c')
 fs = import('fs')
 
-cores_dir = get_option('prefix') / get_option('libdir') / 'highscore' / 'cores'
+libdir = get_option('prefix') / get_option('libdir')
+core_dir = libdir / 'highscore' / 'cores' / 'mednafen'
 
 mednafen_deps = [
   dependency('highscore-1'),
@@ -543,7 +544,7 @@ shared_library('mednafen-highscore',
   c_args : mednafen_c_cpp_args,
   cpp_args : mednafen_c_cpp_args,
   name_prefix: '',
-  install_dir : cores_dir,
+  install_dir : core_dir,
   install : true,
 )
 
@@ -554,6 +555,6 @@ configure_file(
   input: 'mednafen.highscore.in',
   output: 'mednafen.highscore',
   configuration: descriptor,
-  install_dir: cores_dir,
+  install_dir: core_dir,
   install: true
 )
