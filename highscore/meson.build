@@ -32,8 +32,11 @@ add_project_arguments([
 cc = meson.get_compiler('c')
 fs = import('fs')
 
-libdir = get_option('prefix') / get_option('libdir')
-core_dir = libdir / 'highscore' / 'cores' / 'mednafen'
+core_dir = get_option('core_install_dir')
+if core_dir == ''
+  libdir = get_option('prefix') / get_option('libdir')
+  core_dir = libdir / 'highscore' / 'cores' / 'mednafen'
+endif
 
 mednafen_deps = [
   dependency('highscore-1'),
