@@ -395,6 +395,12 @@ mednafen_core_load_rom (HsCore      *core,
       Mednafen::MDFNI_SetSetting ("psx.bios_eu", self->psx_bios_path[HS_PLAYSTATION_BIOS_EU]);
 
     Mednafen::MDFNI_SetSetting ("psx.h_overscan", "0");
+
+    self->top_overscan_n = 8;
+    self->bottom_overscan_n = 8;
+
+    self->top_overscan_p = 24;
+    self->bottom_overscan_p = 24;
   }
 
   if (platform == HS_PLATFORM_SEGA_SATURN) {
