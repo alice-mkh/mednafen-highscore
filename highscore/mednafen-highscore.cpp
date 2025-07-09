@@ -405,11 +405,14 @@ mednafen_core_load_rom (HsCore      *core,
 
     Mednafen::MDFNI_SetSetting ("ss.h_overscan", "0");
 
-    Mednafen::MDFNI_SetSetting ("ss.slstartp", "0");
+    Mednafen::MDFNI_SetSetting ("ss.slstartp", "-16");
     Mednafen::MDFNI_SetSetting ("ss.slendp", "271");
 
-    self->top_overscan_p = 0;
-    self->bottom_overscan_p = 16;
+    self->top_overscan_n = 8;
+    self->bottom_overscan_n = 8;
+
+    self->top_overscan_p = 24;
+    self->bottom_overscan_p = 24;
   }
 
   if (platform == HS_PLATFORM_PC_ENGINE_CD ||
