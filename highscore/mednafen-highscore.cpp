@@ -551,8 +551,6 @@ const int LYNX_BUTTON_MAPPING[] = {
 const int NGP_BUTTON_MAPPING[] = {
   0, 1, 2, 3,  // UP, DOWN, LEFT, RIGHT
   4, 5, 6,     // A, B, OPTION
-
-
 };
 
 const int PCE_BUTTON_MAPPING[] = {
@@ -816,6 +814,15 @@ mednafen_core_run_frame (HsCore *core)
 
   Mednafen::MDFNI_Emulate (&spec);
 
+  gboolean strip_colorburst = FALSE;
+
+  if (base_platform == HS_PLATFORM_PC_ENGINE) {
+    // https://datacrystal.tcrf.net/wiki/VDC_Programmers_Reference_(Turbo-Grafx_16)#$0400_-_CR_-_Control_Register
+    uint32 cr = Mednafen::MDFN_GetSettingUI ("pce_fast.vce_cr");
+
+    strip_colorburst = (cr & (1 << 7)) > 0;
+  }
+
   fb = hs_software_context_acquire_framebuffer (self->context);
   memcpy (fb, self->frame_buffer, self->game->fb_width * self->game->fb_height * 4);
   hs_software_context_release_framebuffer (self->context);
@@ -832,7 +839,6 @@ mednafen_core_run_frame (HsCore *core)
   if (base_platform == HS_PLATFORM_PLAYSTATION ||
       base_platform == HS_PLATFORM_SEGA_SATURN ||
       base_platform == HS_PLATFORM_PC_ENGINE) {
-
     HsBorder overscan;
     if (hs_core_get_region (core) > HS_REGION_PAL)
       hs_border_init_full (&overscan, self->top_overscan_p, self->bottom_overscan_p, 0, 0);
@@ -848,7 +854,7 @@ mednafen_core_run_frame (HsCore *core)
       mode = HS_INTERLACING_NONE;
 
     hs_software_context_set_interlacing (self->context, mode);
-    hs_software_context_set_colorburst_phase (self->context, self->colorburst_phase);
+    hs_software_context_set_colorburst_phase (self->context, strip_colorburst ? -1 : self->colorburst_phase);
 
     if (mode != HS_INTERLACING_ODD_FIELD)
       self->colorburst_phase ^= 1;
