@@ -2401,7 +2401,7 @@ static const MDFNSetting PSXSettings[] =
 
  { "psx.dbg_exe_cdpath", MDFNSF_SUPPRESS_DOC | MDFNSF_CAT_PATH, gettext_noop("CD image to use with .PSX/.EXE loading."), NULL, MDFNST_STRING, "" },
 
- { "psx.used_bios", MDFNSF_NOFLAGS, "The required bios", NULL, MDFNST_STRING, "" },
+ { "psx.used_bios", MDFNSF_SUPPRESS_DOC | MDFNSF_NONPERSISTENT, "The required bios", NULL, MDFNST_STRING, "" },
 
  { NULL },
 };

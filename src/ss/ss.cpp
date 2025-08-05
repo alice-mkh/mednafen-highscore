@@ -2515,7 +2515,7 @@ static const MDFNSetting SSSettings[] =
  { "ss.dbg_cem", MDFNSF_SUPPRESS_DOC | MDFNSF_NONPERSISTENT, gettext_noop("Cache emulation mode debug override."), NULL, MDFNST_ENUM, "auto", NULL, NULL, NULL, NULL, CEM_List },
  { "ss.dbg_hh", MDFNSF_SUPPRESS_DOC | MDFNSF_NONPERSISTENT, gettext_noop("Horrible hacks debug override."), NULL, MDFNST_MULTI_ENUM, "auto", NULL, NULL, NULL, NULL, HH_List },
 
- { "ss.used_bios", MDFNSF_NOFLAGS, "The required bios", NULL, MDFNST_STRING, "" },
+ { "ss.used_bios", MDFNSF_SUPPRESS_DOC | MDFNSF_NONPERSISTENT, "The required bios", NULL, MDFNST_STRING, "" },
 
  { NULL },
 };
