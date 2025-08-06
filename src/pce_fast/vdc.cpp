@@ -55,7 +55,11 @@ vdc_t vdc_chips[2];
 
 static INLINE void FixPCache(int entry)
 {
+#ifdef __HIGHSCORE__
+ const uint32* MDFN_RESTRICT cm32 = systemColorMap32[0];
+#else
  const uint32* MDFN_RESTRICT cm32 = systemColorMap32[vce.CR >> 7];
+#endif
 
  if(!(entry & 0xFF))
  {

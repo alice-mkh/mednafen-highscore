@@ -336,6 +336,7 @@ mednafen_c_cpp_args = [
   '-DSIZEOF_PTRDIFF_T=@0@'.format(cc.sizeof('ptrdiff_t')),
   '-DSIZEOF_SIZE_T=@0@'.format(cc.sizeof('size_t')),
   '-DSIZEOF_VOID_P=@0@'.format(cc.sizeof('void*')),
+  '-D__HIGHSCORE__',
 ]
 
 mednafen_function_checks = {
