@@ -820,7 +820,9 @@ mednafen_core_run_frame (HsCore *core)
   fb = hs_software_context_acquire_framebuffer (self->context);
 
   int width = 0, stride = 0;
-  if (self->game->multires) {
+
+  // Just in case let's restrict this to PCE - Saturn and PSX are a bit too performance-sensitive to risk this
+  if (self->game->multires && base_platform == HS_PLATFORM_PC_ENGINE) {
     gboolean has_multiple_widths = FALSE;
 
     // Check if we even have multiple widths and find the largest one, we'll align everything else to it
