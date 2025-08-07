@@ -522,7 +522,10 @@ mednafen_core_load_rom (HsCore      *core,
     return FALSE;
   }
 
-  self->context = hs_core_create_software_context (core, self->game->fb_width, self->game->fb_height, HS_PIXEL_FORMAT_B8G8R8X8);
+  int w = self->game->multires ? self->game->lcm_width : self->game->fb_width;
+  int h = self->game->multires ? self->game->lcm_height : self->game->fb_height;
+
+  self->context = hs_core_create_software_context (core, w, h, HS_PIXEL_FORMAT_B8G8R8X8);
   self->frame_buffer = g_new0 (guint8, self->game->fb_width * self->game->fb_height * 4);
 
   self->surface = new Mednafen::MDFN_Surface (self->frame_buffer,
@@ -815,17 +818,71 @@ mednafen_core_run_frame (HsCore *core)
   Mednafen::MDFNI_Emulate (&spec);
 
   fb = hs_software_context_acquire_framebuffer (self->context);
-  memcpy (fb, self->frame_buffer, self->game->fb_width * self->game->fb_height * 4);
-  hs_software_context_release_framebuffer (self->context);
 
-  int width = 0;
-  if (self->game->multires)
-    width = rects[spec.DisplayRect.y];
-  else
+  int width = 0, stride = 0;
+  if (self->game->multires) {
+    gboolean has_multiple_widths = FALSE;
+
+    // Check if we even have multiple widths and find the largest one, we'll align everything else to it
+    for (int line = spec.DisplayRect.y + 1; line < spec.DisplayRect.y + spec.DisplayRect.h; line++) {
+      if (rects[line] != rects[spec.DisplayRect.y]) {
+        has_multiple_widths = TRUE;
+        break;
+      }
+    }
+
+    if (has_multiple_widths) {
+      width = self->game->lcm_width;
+
+      int src_stride = self->game->fb_width * 4;
+      int dst_stride = self->game->lcm_width * 4;
+
+      stride = dst_stride;
+
+      for (int line = spec.DisplayRect.y; line < spec.DisplayRect.y + spec.DisplayRect.h; line++) {
+        if (rects[line] == width) {
+          // Lines that fill everything we can copy as is
+          memcpy (&((uint8 *) fb)[dst_stride * line], &self->frame_buffer[src_stride * line], src_stride);
+        } else {
+          // Otherwise we're rescaling them to the largest possible integer scale. If we leave a pixel of padding, too bad
+          int scale = (int) floorf (width / (float) rects[line]);
+          int src_offset = src_stride * line + spec.DisplayRect.x * 4;
+          int dst_offset = dst_stride * line + spec.DisplayRect.x * 4;
+          uint8 *dest = (uint8 *) fb;
+
+          for (int pixel = 0; pixel < rects[line]; pixel++) {
+            for (int i = 0; i < scale; i++) {
+              dest[dst_offset]     = self->frame_buffer[src_offset];
+              dest[dst_offset + 1] = self->frame_buffer[src_offset + 1];
+              dest[dst_offset + 2] = self->frame_buffer[src_offset + 2];
+              dest[dst_offset + 3] = self->frame_buffer[src_offset + 3];
+
+              dst_offset += 4;
+            }
+
+            src_offset += 4;
+          }
+        }
+      }
+    } else {
+      width = rects[spec.DisplayRect.y];
+      stride = self->game->fb_width * 4;
+
+      memcpy (fb, self->frame_buffer, self->game->fb_width * self->game->fb_height * 4);
+    }
+  } else {
     width = spec.DisplayRect.w ?: rects[spec.DisplayRect.y];
+    stride = self->game->fb_width * 4;
+
+    memcpy (fb, self->frame_buffer, self->game->fb_width * self->game->fb_height * 4);
+  }
+
+  hs_software_context_release_framebuffer (self->context);
 
   HsRectangle rect = { spec.DisplayRect.x, spec.DisplayRect.y, width, spec.DisplayRect.h };
   hs_software_context_set_area (self->context, &rect);
+
+  hs_software_context_set_row_stride (self->context, stride);
 
   if (base_platform == HS_PLATFORM_PLAYSTATION ||
       base_platform == HS_PLATFORM_SEGA_SATURN ||
