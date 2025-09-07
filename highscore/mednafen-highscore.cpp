@@ -922,8 +922,12 @@ mednafen_core_run_frame (HsCore *core)
     } else {
       hs_software_context_set_colorburst_phase (self->context, self->colorburst_phase);
 
-      if (mode != HS_INTERLACING_ODD_FIELD)
-        self->colorburst_phase ^= 1;
+      if (hs_core_get_region (core) == HS_REGION_PAL) {
+        self->colorburst_phase = (self->colorburst_phase + 1) % 4;
+      } else {
+        if (mode != HS_INTERLACING_ODD_FIELD)
+          self->colorburst_phase ^= 1;
+      }
     }
   }
 
