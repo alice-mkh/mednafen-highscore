@@ -600,6 +600,7 @@ const int SS_3D_BUTTON_MAPPING[] = {
 #define SS_3D_MODE_SWITCH_MASK (1 << 12)
 #define SS_3D_STICK_X 2
 #define SS_3D_STICK_Y 4
+#define SS_3D_STICK_DEADZONE 0.05
 #define SS_3D_TRIGGER_L 8
 #define SS_3D_TRIGGER_R 6
 
@@ -751,8 +752,20 @@ mednafen_core_poll_input (HsCore *core, HsInputState *input_state)
         double x = input_state->saturn.pad_stick_x[player];
         double y = input_state->saturn.pad_stick_y[player];
 
-        Mednafen::MDFN_en16lsb (&buf[SS_3D_STICK_X], (1 + x) * 32767);
-        Mednafen::MDFN_en16lsb (&buf[SS_3D_STICK_Y], (1 + y) * 32767);
+        double distance = sqrt (x * x + y * y);
+        double angle = atan2 (y, x);
+
+        if (distance > SS_3D_STICK_DEADZONE) {
+          distance = (distance - SS_3D_STICK_DEADZONE) / (1.0 - SS_3D_STICK_DEADZONE);
+
+          x = distance * cos (angle);
+          y = distance * sin (angle);
+        } else {
+          x = y = 0;
+        }
+
+        Mednafen::MDFN_en16lsb (&buf[SS_3D_STICK_X], floor ((1 + x) * 32767 + 0.5));
+        Mednafen::MDFN_en16lsb (&buf[SS_3D_STICK_Y], floor ((1 + y) * 32767 + 0.5));
 
         double l = input_state->saturn.pad_left_trigger[player];
         double r = input_state->saturn.pad_right_trigger[player];
