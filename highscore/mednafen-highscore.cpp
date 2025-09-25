@@ -23,10 +23,6 @@ struct _MednafenCore
 
   char *rom_path;
   GFile *m3u_file;
-  char *pce_cd_bios_path;
-  char *psx_bios_path[HS_PLAYSTATION_BIOS_N_BIOS];
-  char *ss_bios_path[HS_SEGA_SATURN_BIOS_N_BIOS];
-  char *lynx_bios_path;
 
   guint current_disc;
   guint media_cb_id;
@@ -357,12 +353,14 @@ mednafen_core_load_rom (HsCore      *core,
     return FALSE;
 
   if (platform == HS_PLATFORM_ATARI_LYNX) {
-    if (!self->lynx_bios_path) {
-      g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_BIOS, "Missing Lynx boot ROM");
+    const char *bios_path = hs_core_query_firmware_path (core, HS_ATARI_LYNX_FIRMWARE_BOOT_ROM);
+
+    if (!bios_path) {
+      g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_FIRMWARE, "Missing Lynx boot ROM");
       return FALSE;
     }
 
-    Mednafen::MDFNI_SetSetting ("lynx.bios", self->lynx_bios_path);
+    Mednafen::MDFNI_SetSetting ("lynx.bios", bios_path);
     Mednafen::MDFNI_SetSetting ("lynx.rotateinput", "0");
   }
 
@@ -378,21 +376,30 @@ mednafen_core_load_rom (HsCore      *core,
   }
 
   if (platform == HS_PLATFORM_PC_ENGINE_CD) {
-    if (!self->pce_cd_bios_path) {
-      g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_BIOS, "Missing System Card 3.0 BIOS");
+    const char *bios_path = hs_core_query_firmware_path (core, HS_PC_ENGINE_CD_FIRMWARE_SYSTEM_CARD_3_0);
+
+    if (!bios_path) {
+      g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_FIRMWARE, "Missing System Card 3.0 BIOS");
       return FALSE;
     }
 
-    Mednafen::MDFNI_SetSetting ("pce_fast.cdbios", self->pce_cd_bios_path);
+    Mednafen::MDFNI_SetSetting ("pce_fast.cdbios", bios_path);
   }
 
   if (platform == HS_PLATFORM_PLAYSTATION) {
-    if (self->psx_bios_path[HS_PLAYSTATION_BIOS_JP])
-      Mednafen::MDFNI_SetSetting ("psx.bios_jp", self->psx_bios_path[HS_PLAYSTATION_BIOS_JP]);
-    if (self->psx_bios_path[HS_PLAYSTATION_BIOS_US])
-      Mednafen::MDFNI_SetSetting ("psx.bios_na", self->psx_bios_path[HS_PLAYSTATION_BIOS_US]);
-    if (self->psx_bios_path[HS_PLAYSTATION_BIOS_EU])
-      Mednafen::MDFNI_SetSetting ("psx.bios_eu", self->psx_bios_path[HS_PLAYSTATION_BIOS_EU]);
+    const char *jp_path = hs_core_query_firmware_path (core, HS_PLAYSTATION_FIRMWARE_JAPAN);
+    const char *na_path = hs_core_query_firmware_path (core, HS_PLAYSTATION_FIRMWARE_NORTH_AMERICA);
+    const char *eu_path = hs_core_query_firmware_path (core, HS_PLAYSTATION_FIRMWARE_EUROPE);
+
+    // We don't want to count all 3 as used
+    hs_core_reset_used_firmware (core);
+
+    if (jp_path)
+      Mednafen::MDFNI_SetSetting ("psx.bios_jp", jp_path);
+    if (na_path)
+      Mednafen::MDFNI_SetSetting ("psx.bios_na", na_path);
+    if (eu_path)
+      Mednafen::MDFNI_SetSetting ("psx.bios_eu", eu_path);
 
     Mednafen::MDFNI_SetSetting ("psx.h_overscan", "0");
 
@@ -404,10 +411,16 @@ mednafen_core_load_rom (HsCore      *core,
   }
 
   if (platform == HS_PLATFORM_SEGA_SATURN) {
-    if (self->ss_bios_path[HS_SEGA_SATURN_BIOS_JP])
-      Mednafen::MDFNI_SetSetting ("ss.bios_jp", self->ss_bios_path[HS_SEGA_SATURN_BIOS_JP]);
-    if (self->ss_bios_path[HS_SEGA_SATURN_BIOS_US_EU])
-      Mednafen::MDFNI_SetSetting ("ss.bios_na_eu", self->ss_bios_path[HS_SEGA_SATURN_BIOS_US_EU]);
+    const char *jp_path = hs_core_query_firmware_path (core, HS_SEGA_SATURN_FIRMWARE_JAPAN);
+    const char *na_eu_path = hs_core_query_firmware_path (core, HS_SEGA_SATURN_FIRMWARE_OVERSEAS);
+
+    // We don't want to count both as used
+    hs_core_reset_used_firmware (core);
+
+    if (jp_path)
+      Mednafen::MDFNI_SetSetting ("ss.bios_jp", jp_path);
+    if (na_eu_path)
+      Mednafen::MDFNI_SetSetting ("ss.bios_na_eu", na_eu_path);
 
     Mednafen::MDFNI_SetSetting ("ss.h_overscan", "0");
 
@@ -473,47 +486,47 @@ mednafen_core_load_rom (HsCore      *core,
   if (!self->game) {
     if (base_platform == HS_PLATFORM_PLAYSTATION) {
       std::string bios = Mednafen::MDFN_GetSettingS ("psx.used_bios");
-      HsPlayStationBios type;
+      HsPlayStationFirmware id;
       const char *region;
 
       if (bios == "psx.bios_jp") {
-        type = HS_PLAYSTATION_BIOS_JP;
+        id = HS_PLAYSTATION_FIRMWARE_JAPAN;
         region = "JP";
       } else if (bios == "psx.bios_na") {
-        type = HS_PLAYSTATION_BIOS_US;
+        id = HS_PLAYSTATION_FIRMWARE_NORTH_AMERICA;
         region = "US";
       } else if (bios == "psx.bios_eu") {
-        type = HS_PLAYSTATION_BIOS_EU;
+        id = HS_PLAYSTATION_FIRMWARE_EUROPE;
         region = "EU";
       } else {
         g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_INTERNAL, "Unknown BIOS: %s", bios.c_str ());
         return FALSE;
       }
 
-      if (!self->psx_bios_path[type]) {
-        g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_BIOS, "Missing Playstation %s BIOS", region);
+      if (!hs_core_query_firmware_path (core, id)) {
+        g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_FIRMWARE, "Missing Playstation %s BIOS", region);
         return FALSE;
       }
     }
 
     if (base_platform == HS_PLATFORM_SEGA_SATURN) {
       std::string bios = Mednafen::MDFN_GetSettingS ("ss.used_bios");
-      HsSegaSaturnBios type;
+      HsSegaSaturnFirmware id;
       const char *region;
 
       if (bios == "ss.bios_jp") {
-        type = HS_SEGA_SATURN_BIOS_JP;
+        id = HS_SEGA_SATURN_FIRMWARE_JAPAN;
         region = "JP";
       } else if (bios == "ss.bios_na_eu") {
-        type = HS_SEGA_SATURN_BIOS_US_EU;
+        id = HS_SEGA_SATURN_FIRMWARE_OVERSEAS;
         region = "US / EU";
       } else {
         g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_INTERNAL, "Unknown BIOS: %s", bios.c_str ());
         return FALSE;
       }
 
-      if (!self->ss_bios_path[type]) {
-        g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_BIOS, "Missing Sega Saturn %s BIOS", region);
+      if (!hs_core_query_firmware_path (core, id)) {
+        g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_FIRMWARE, "Missing Sega Saturn %s BIOS", region);
         return FALSE;
       }
     }
@@ -1196,15 +1209,6 @@ mednafen_core_finalize (GObject *object)
 
   g_free (self->sound_buffer);
 
-  g_free (self->lynx_bios_path);
-  g_free (self->pce_cd_bios_path);
-
-  for (int i = 0; i < HS_PLAYSTATION_BIOS_N_BIOS; i++)
-    g_free (self->psx_bios_path[i]);
-
-  for (int i = 0; i < HS_SEGA_SATURN_BIOS_N_BIOS; i++)
-    g_free (self->ss_bios_path[i]);
-
   core = NULL;
 
   G_OBJECT_CLASS (mednafen_core_parent_class)->finalize (object);
@@ -1256,17 +1260,8 @@ mednafen_core_init (MednafenCore *self)
 }
 
 static void
-mednafen_atari_lynx_core_set_bios_path (HsAtariLynxCore *core, const char *path)
-{
-  MednafenCore *self = MEDNAFEN_CORE (core);
-
-  g_set_str (&self->lynx_bios_path, path);
-}
-
-static void
 mednafen_atari_lynx_core_init (HsAtariLynxCoreInterface *iface)
 {
-  iface->set_bios_path = mednafen_atari_lynx_core_set_bios_path;
 }
 
 static void
@@ -1280,17 +1275,8 @@ mednafen_pc_engine_core_init (HsPcEngineCoreInterface *iface)
 }
 
 static void
-mednafen_pc_engine_cd_core_set_bios_path (HsPcEngineCdCore *core, const char *path)
-{
-  MednafenCore *self = MEDNAFEN_CORE (core);
-
-  g_set_str (&self->pce_cd_bios_path, path);
-}
-
-static void
 mednafen_pc_engine_cd_core_init (HsPcEngineCdCoreInterface *iface)
 {
-  iface->set_bios_path = mednafen_pc_engine_cd_core_set_bios_path;
 }
 
 HsPlayStationDualShockMode
@@ -1314,37 +1300,10 @@ mednafen_playstation_core_set_dualshock_mode (HsPlayStationCore *core, guint pla
 }
 
 static void
-mednafen_playstation_core_set_bios_path (HsPlayStationCore *core, HsPlayStationBios type, const char *path)
-{
-  MednafenCore *self = MEDNAFEN_CORE (core);
-
-  g_set_str (&self->psx_bios_path[type], path);
-}
-
-static HsPlayStationBios
-mednafen_playstation_core_get_used_bios (HsPlayStationCore *core)
-{
-  std::string bios = Mednafen::MDFN_GetSettingS ("psx.used_bios");
-
-  if (bios == "psx.bios_jp")
-    return HS_PLAYSTATION_BIOS_JP;
-
-  if (bios == "psx.bios_na")
-    return HS_PLAYSTATION_BIOS_US;
-
-  if (bios == "psx.bios_eu")
-    return HS_PLAYSTATION_BIOS_EU;
-
-  return HS_PLAYSTATION_BIOS_JP;
-}
-
-static void
 mednafen_playstation_core_init (HsPlayStationCoreInterface *iface)
 {
   iface->get_dualshock_mode = mednafen_playstation_core_get_dualshock_mode;
   iface->set_dualshock_mode = mednafen_playstation_core_set_dualshock_mode;
-  iface->set_bios_path = mednafen_playstation_core_set_bios_path;
-  iface->get_used_bios = mednafen_playstation_core_get_used_bios;
 }
 
 static void
@@ -1367,33 +1326,9 @@ mednafen_sega_saturn_core_set_controller (HsSegaSaturnCore *core, guint player, 
 }
 
 static void
-mednafen_sega_saturn_core_set_bios_path (HsSegaSaturnCore *core, HsSegaSaturnBios type, const char *path)
-{
-  MednafenCore *self = MEDNAFEN_CORE (core);
-
-  g_set_str (&self->ss_bios_path[type], path);
-}
-
-static HsSegaSaturnBios
-mednafen_sega_saturn_core_get_used_bios (HsSegaSaturnCore *core)
-{
-  std::string bios = Mednafen::MDFN_GetSettingS ("ss.used_bios");
-
-  if (bios == "ss.bios_jp")
-    return HS_SEGA_SATURN_BIOS_JP;
-
-  if (bios == "ss.bios_na_eu")
-    return HS_SEGA_SATURN_BIOS_US_EU;
-
-  return HS_SEGA_SATURN_BIOS_JP;
-}
-
-static void
 mednafen_sega_saturn_core_init (HsSegaSaturnCoreInterface *iface)
 {
   iface->set_controller = mednafen_sega_saturn_core_set_controller;
-  iface->set_bios_path = mednafen_sega_saturn_core_set_bios_path;
-  iface->get_used_bios = mednafen_sega_saturn_core_get_used_bios;
 }
 
 static void
