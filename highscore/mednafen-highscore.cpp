@@ -43,22 +43,26 @@ struct _MednafenCore
 
 static void mednafen_atari_lynx_core_init (HsAtariLynxCoreInterface *iface);
 static void mednafen_neo_geo_pocket_core_init (HsNeoGeoPocketCoreInterface *iface);
+static void mednafen_neo_geo_pocket_color_core_init (HsNeoGeoPocketColorCoreInterface *iface);
 static void mednafen_pc_engine_core_init (HsPcEngineCoreInterface *iface);
 static void mednafen_pc_engine_cd_core_init (HsPcEngineCdCoreInterface *iface);
 static void mednafen_playstation_core_init (HsPlayStationCoreInterface *iface);
 static void mednafen_sega_saturn_core_init (HsSegaSaturnCoreInterface *iface);
 static void mednafen_virtual_boy_core_init (HsVirtualBoyCoreInterface *iface);
 static void mednafen_wonderswan_core_init (HsWonderSwanCoreInterface *iface);
+static void mednafen_wonderswan_color_core_init (HsWonderSwanColorCoreInterface *iface);
 
 G_DEFINE_FINAL_TYPE_WITH_CODE (MednafenCore, mednafen_core, HS_TYPE_CORE,
                                G_IMPLEMENT_INTERFACE (HS_TYPE_ATARI_LYNX_CORE, mednafen_atari_lynx_core_init)
                                G_IMPLEMENT_INTERFACE (HS_TYPE_NEO_GEO_POCKET_CORE, mednafen_neo_geo_pocket_core_init)
+                               G_IMPLEMENT_INTERFACE (HS_TYPE_NEO_GEO_POCKET_COLOR_CORE, mednafen_neo_geo_pocket_color_core_init)
                                G_IMPLEMENT_INTERFACE (HS_TYPE_PC_ENGINE_CORE, mednafen_pc_engine_core_init)
                                G_IMPLEMENT_INTERFACE (HS_TYPE_PC_ENGINE_CD_CORE, mednafen_pc_engine_cd_core_init)
                                G_IMPLEMENT_INTERFACE (HS_TYPE_PLAYSTATION_CORE, mednafen_playstation_core_init)
                                G_IMPLEMENT_INTERFACE (HS_TYPE_SEGA_SATURN_CORE, mednafen_sega_saturn_core_init)
                                G_IMPLEMENT_INTERFACE (HS_TYPE_VIRTUAL_BOY_CORE, mednafen_virtual_boy_core_init)
-                               G_IMPLEMENT_INTERFACE (HS_TYPE_WONDERSWAN_CORE, mednafen_wonderswan_core_init))
+                               G_IMPLEMENT_INTERFACE (HS_TYPE_WONDERSWAN_CORE, mednafen_wonderswan_core_init)
+                               G_IMPLEMENT_INTERFACE (HS_TYPE_WONDERSWAN_COLOR_CORE, mednafen_wonderswan_color_core_init))
 
 void
 Mednafen::MDFND_OutputInfo (const char *s) noexcept
@@ -1270,6 +1274,11 @@ mednafen_neo_geo_pocket_core_init (HsNeoGeoPocketCoreInterface *iface)
 }
 
 static void
+mednafen_neo_geo_pocket_color_core_init (HsNeoGeoPocketColorCoreInterface *iface)
+{
+}
+
+static void
 mednafen_pc_engine_core_init (HsPcEngineCoreInterface *iface)
 {
 }
@@ -1338,6 +1347,11 @@ mednafen_virtual_boy_core_init (HsVirtualBoyCoreInterface *iface)
 
 static void
 mednafen_wonderswan_core_init (HsWonderSwanCoreInterface *iface)
+{
+}
+
+static void
+mednafen_wonderswan_color_core_init (HsWonderSwanColorCoreInterface *iface)
 {
 }
 
