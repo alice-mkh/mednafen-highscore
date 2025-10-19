@@ -65,6 +65,15 @@ struct LYNX_HEADER
    uint8   spare[5];
 };
 
+struct LYNX_DB
+{
+   uint32 crc32;
+   const char *name;
+   uint32 filesize;
+   uint32 rotation;
+   uint32 reserved;
+};
+
 class CCart : public CLynxBase
 {
 
@@ -135,6 +144,9 @@ class CCart : public CLynxBase
 		uint32	mCountMask1;
 
 		int8 last_strobe;
+
+		bool    found;
+		LYNX_DB CheckHash(const uint32 crc32);
 };
 
 #endif

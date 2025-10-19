@@ -85,12 +85,8 @@ CSystem::CSystem(GameFile* gf)
 
 	if(!strcmp(&clip[6],"BS93"))
 	 mFileType = HANDY_FILETYPE_HOMEBREW;
-	else if(!strcmp(&clip[0],"LYNX"))
-	 mFileType = HANDY_FILETYPE_LNX;
 	else
-	{
-		throw MDFN_Error(0, _("File format is unknown to module \"%s\"."), MDFNGameInfo->shortname);
-	}
+	 mFileType = HANDY_FILETYPE_LNX;
 
 	MDFNMP_Init(65536, 1);
 
