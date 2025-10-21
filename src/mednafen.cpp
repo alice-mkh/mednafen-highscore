@@ -1369,7 +1369,9 @@ MDFNGI *MDFNI_LoadGame(const char *force_module, VirtualFS* vfs, const char* pat
 	}
 	//
 	//
+#ifndef !__HIGHSCORE__
 	LoadIPS(vfs, &mfgf, MDFN_MakeFName(MDFNMKF_PATCH, 0, "ips"));
+#endif
 	//
 	//
 	std::string eff_dir_path, eff_orig_fname, eff_fbase, eff_can_ext;
