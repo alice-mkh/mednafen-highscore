@@ -1248,6 +1248,7 @@ MDFNGI *MDFNI_LoadExternalCD(const char* force_module, const char* path_hint, CD
  return LoadCDGame(force_module, &::Mednafen::NVFS, path_hint, &::Mednafen::NVFS, path_hint, cdif);
 }
 
+#ifndef __HIGHSCORE__
 static MDFN_COLD void LoadIPS(VirtualFS* vfs, MDFNFILE* mfgf, const std::string& path)
 {
  MDFN_printf(_("Applying IPS file %s...\n"), vfs->get_human_path(path).c_str());
@@ -1274,6 +1275,7 @@ static MDFN_COLD void LoadIPS(VirtualFS* vfs, MDFNFILE* mfgf, const std::string&
   throw;
  }
 }
+#endif
 
 MDFNGI *MDFNI_LoadGame(const char *force_module, VirtualFS* vfs, const char* path, bool force_cd)
 {
@@ -1369,7 +1371,7 @@ MDFNGI *MDFNI_LoadGame(const char *force_module, VirtualFS* vfs, const char* pat
 	}
 	//
 	//
-#ifndef !__HIGHSCORE__
+#ifndef __HIGHSCORE__
 	LoadIPS(vfs, &mfgf, MDFN_MakeFName(MDFNMKF_PATCH, 0, "ips"));
 #endif
 	//
