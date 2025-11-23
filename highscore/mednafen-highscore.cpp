@@ -487,54 +487,55 @@ mednafen_core_load_rom (HsCore      *core,
   }
 
   self->game = Mednafen::MDFNI_LoadGame (platform_name, &::Mednafen::NVFS, rom_path);
+
+  if (base_platform == HS_PLATFORM_PLAYSTATION) {
+    std::string bios = Mednafen::MDFN_GetSettingS ("psx.used_bios");
+    HsPlayStationFirmware id;
+    const char *region;
+
+    if (bios == "psx.bios_jp") {
+      id = HS_PLAYSTATION_FIRMWARE_JAPAN;
+      region = "JP";
+    } else if (bios == "psx.bios_na") {
+      id = HS_PLAYSTATION_FIRMWARE_NORTH_AMERICA;
+      region = "US";
+    } else if (bios == "psx.bios_eu") {
+      id = HS_PLAYSTATION_FIRMWARE_EUROPE;
+      region = "EU";
+    } else {
+      g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_INTERNAL, "Failed to load game");
+      return FALSE;
+    }
+
+    if (!hs_core_query_firmware_path (core, id)) {
+      g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_FIRMWARE, "Missing Playstation %s BIOS", region);
+      return FALSE;
+    }
+  }
+
+  if (base_platform == HS_PLATFORM_SEGA_SATURN) {
+    std::string bios = Mednafen::MDFN_GetSettingS ("ss.used_bios");
+    HsSegaSaturnFirmware id;
+    const char *region;
+
+    if (bios == "ss.bios_jp") {
+      id = HS_SEGA_SATURN_FIRMWARE_JAPAN;
+      region = "JP";
+    } else if (bios == "ss.bios_na_eu") {
+      id = HS_SEGA_SATURN_FIRMWARE_OVERSEAS;
+      region = "US / EU";
+    } else {
+      g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_INTERNAL, "Failed to load game");
+      return FALSE;
+    }
+
+    if (!hs_core_query_firmware_path (core, id)) {
+      g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_FIRMWARE, "Missing Sega Saturn %s BIOS", region);
+      return FALSE;
+    }
+  }
+
   if (!self->game) {
-    if (base_platform == HS_PLATFORM_PLAYSTATION) {
-      std::string bios = Mednafen::MDFN_GetSettingS ("psx.used_bios");
-      HsPlayStationFirmware id;
-      const char *region;
-
-      if (bios == "psx.bios_jp") {
-        id = HS_PLAYSTATION_FIRMWARE_JAPAN;
-        region = "JP";
-      } else if (bios == "psx.bios_na") {
-        id = HS_PLAYSTATION_FIRMWARE_NORTH_AMERICA;
-        region = "US";
-      } else if (bios == "psx.bios_eu") {
-        id = HS_PLAYSTATION_FIRMWARE_EUROPE;
-        region = "EU";
-      } else {
-        g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_INTERNAL, "Unknown BIOS: %s", bios.c_str ());
-        return FALSE;
-      }
-
-      if (!hs_core_query_firmware_path (core, id)) {
-        g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_FIRMWARE, "Missing Playstation %s BIOS", region);
-        return FALSE;
-      }
-    }
-
-    if (base_platform == HS_PLATFORM_SEGA_SATURN) {
-      std::string bios = Mednafen::MDFN_GetSettingS ("ss.used_bios");
-      HsSegaSaturnFirmware id;
-      const char *region;
-
-      if (bios == "ss.bios_jp") {
-        id = HS_SEGA_SATURN_FIRMWARE_JAPAN;
-        region = "JP";
-      } else if (bios == "ss.bios_na_eu") {
-        id = HS_SEGA_SATURN_FIRMWARE_OVERSEAS;
-        region = "US / EU";
-      } else {
-        g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_INTERNAL, "Unknown BIOS: %s", bios.c_str ());
-        return FALSE;
-      }
-
-      if (!hs_core_query_firmware_path (core, id)) {
-        g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_MISSING_FIRMWARE, "Missing Sega Saturn %s BIOS", region);
-        return FALSE;
-      }
-    }
-
     g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_INTERNAL, "Failed to load game");
     return FALSE;
   }
