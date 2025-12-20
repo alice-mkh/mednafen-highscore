@@ -26,6 +26,7 @@ struct _MednafenCore
 
   guint current_disc;
   guint media_cb_id;
+  guint media_length;
 
   gboolean psx_ds_analog[4];
 
@@ -553,6 +554,7 @@ mednafen_core_load_rom (HsCore      *core,
   setup_controllers (self);
 
   self->rom_path = g_strdup (rom_path);
+  self->media_length = n_rom_paths;
 
   if (platform == HS_PLATFORM_PC_ENGINE_CD ||
       platform == HS_PLATFORM_PLAYSTATION ||
@@ -1163,6 +1165,14 @@ mednafen_core_get_region (HsCore *core)
 }
 
 static guint
+mednafen_core_get_media_length (HsCore *core)
+{
+  MednafenCore *self = MEDNAFEN_CORE (core);
+
+  return self->media_length;
+}
+
+static guint
 mednafen_core_get_current_media (HsCore *core)
 {
   MednafenCore *self = MEDNAFEN_CORE (core);
@@ -1247,6 +1257,7 @@ mednafen_core_class_init (MednafenCoreClass *klass)
 
   core_class->get_region = mednafen_core_get_region;
 
+  core_class->get_media_length = mednafen_core_get_media_length;
   core_class->get_current_media = mednafen_core_get_current_media;
   core_class->set_current_media = mednafen_core_set_current_media;
 }
