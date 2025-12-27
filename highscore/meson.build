@@ -1,17 +1,18 @@
 project('mednafen-highscore', ['cpp', 'c'],
   version : '1.32.1',
+  meson_version: '>= 1.3.0',
+  default_options: ['c_std=gnu99']
 )
 
 mednafen_version_numeric=0x00103201
 
 version = meson.project_version()
-commit = run_command('git', 'describe', '--always', '--dirty').stdout().strip()
+commit = run_command('git', 'describe', '--always', '--dirty', check: false).stdout().strip()
 
 add_project_arguments([
   '-Wno-stringop-truncation',
   '-Wno-unused-but-set-variable',
   '-Wno-unused-variable',
-  '-std=gnu99',
   '-fvisibility=hidden',
 ], language: 'c')
 
