@@ -25,6 +25,7 @@ add_project_arguments([
   '-Wno-stringop-truncation',
   '-Wno-unused-but-set-variable',
   '-Wno-unused-parameter',
+  '-Wno-unused-result',
   '-Wno-unused-value',
   '-Wno-unused-variable',
   '-fvisibility=hidden',
