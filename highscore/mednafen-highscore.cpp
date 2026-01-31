@@ -406,7 +406,6 @@ mednafen_core_load_rom (HsCore      *core,
     if (eu_path)
       Mednafen::MDFNI_SetSetting ("psx.bios_eu", eu_path);
 
-    Mednafen::MDFNI_SetSetting ("psx.bios_sanity", "0");
     Mednafen::MDFNI_SetSetting ("psx.h_overscan", "0");
 
     self->top_overscan_n = 8;
