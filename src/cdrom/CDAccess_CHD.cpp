@@ -34,14 +34,14 @@ using namespace CDUtility;
 // Disk-image(rip) track/sector formats
 enum
 {
-  DI_FORMAT_AUDIO = 0x00,
-  DI_FORMAT_MODE1 = 0x01,
-  DI_FORMAT_MODE1_RAW = 0x02,
-  DI_FORMAT_MODE2 = 0x03,
+  DI_FORMAT_AUDIO       = 0x00,
+  DI_FORMAT_MODE1       = 0x01,
+  DI_FORMAT_MODE1_RAW   = 0x02,
+  DI_FORMAT_MODE2       = 0x03,
   DI_FORMAT_MODE2_FORM1 = 0x04,
   DI_FORMAT_MODE2_FORM2 = 0x05,
-  DI_FORMAT_MODE2_RAW = 0x06,
-  DI_FORMAT_CDI_RAW = 0x07,
+  DI_FORMAT_MODE2_RAW   = 0x06,
+  DI_FORMAT_CDI_RAW     = 0x07,
   _DI_FORMAT_COUNT
 };
 
@@ -165,7 +165,7 @@ bool CDAccess_CHD::Load(const std::string &path, bool image_memcache)
     else if (strcmp(type, "MODE1") == 0)
       Tracks[NumTracks].DIFormat = DI_FORMAT_MODE1;
 
-    Tracks[NumTracks].subq_control = strcmp(type, "AUDIO") == 0 ? 0 : 4;
+    Tracks[NumTracks].subq_control = (strcmp(type, "AUDIO") == 0) ? 0 : 4;
 
     //MDFN_printf("chd_parse '%s' track=%d lba=%d, pregap=%d pregap_dv=%d postgap=%d sectors=%d\n", tmp, NumTracks, Tracks[NumTracks].LBA, Tracks[NumTracks].pregap, Tracks[NumTracks].pregap_dv, Tracks[NumTracks].postgap, Tracks[NumTracks].sectors);
 
@@ -385,7 +385,9 @@ int32_t CDAccess_CHD::MakeSubPQ(int32_t lba, uint8_t *SubPWBuf) const
 
   // Handle pause(D7 of interleaved subchannel byte) bit, should be set to 1 when in pregap or postgap.
   if ((lba < Tracks[track].LBA) || (lba >= Tracks[track].LBA + Tracks[track].sectors))
+  {
     pause_or = 0x80;
+  }
 
   // Handle pregap between audio->data track
   {

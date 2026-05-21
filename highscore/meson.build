@@ -311,6 +311,7 @@ mednafen_c_cpp_args = [
   '-DMDFN_DISABLE_PICPIE_ERRWARN=1',
   '-DICONV_CONST=',
   '-DPACKAGE="mednafen"',
+  '-DHAVE_CHD=1',
   '-DHAVE_EXTERNAL_LIBZSTD=1',
   '-DHAVE_INLINEASM_AVX=1',
   '-DHAVE_POSIX_PRINTF=1',
