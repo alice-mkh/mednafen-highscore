@@ -58,7 +58,7 @@ class CDAccess_CHD : public CDAccess
 {
  public:
 
- CDAccess_CHD(const std::string& path, bool image_memcache);
+ CDAccess_CHD(VirtualFS* vfs, const std::string& path, bool image_memcache);
  virtual ~CDAccess_CHD();
 
  virtual void Read_Raw_Sector(uint8 *buf, int32 lba);
@@ -69,11 +69,16 @@ class CDAccess_CHD : public CDAccess
 
  private:
 
- bool Load(const std::string& path, bool image_memcache);
+ bool Load(VirtualFS* vfs, const std::string& path, bool image_memcache);
  void Cleanup(void);
 
   // MakeSubPQ will OR the simulated P and Q subchannel data into SubPWBuf.
   int32_t MakeSubPQ(int32_t lba, uint8_t *SubPWBuf) const;
+
+  void Read_CHD_Hunk_RAW(uint8_t *buf, int32_t lba, CHDFILE_TRACK_INFO* track);
+  void Read_CHD_Hunk_M1(uint8_t *buf, int32_t lba, CHDFILE_TRACK_INFO* track);
+  void Read_CHD_Hunk_M2(uint8_t *buf, int32_t lba, CHDFILE_TRACK_INFO* track);
+  void LoadSBI(VirtualFS* vfs, const std::string& sbi_path);
 
   int32_t NumTracks;
   int32_t FirstTrack;
@@ -82,6 +87,8 @@ class CDAccess_CHD : public CDAccess
   uint8_t disc_type;
   CDUtility::TOC toc;
   CHDFILE_TRACK_INFO Tracks[CD_MAX_TRACKS + 1];
+
+  std::map<uint32, std::array<uint8, 12>> SubQReplaceMap;
 
   //struct disc;
   //struct session sessions[DISC_MAX_SESSIONS];

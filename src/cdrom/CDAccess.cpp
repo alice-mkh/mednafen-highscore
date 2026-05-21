@@ -51,7 +51,7 @@ CDAccess* CDAccess_Open(VirtualFS* vfs, const std::string& path, bool image_memc
   ret = new CDAccess_CCD(vfs, path, image_memcache);
 #ifdef HAVE_CHD
  else if(vfs->test_ext(path, ".chd"))
-  ret = new CDAccess_CHD(path, image_memcache);
+  ret = new CDAccess_CHD(vfs, path, image_memcache);
 #endif
  else
   ret = new CDAccess_Image(vfs, path, image_memcache);

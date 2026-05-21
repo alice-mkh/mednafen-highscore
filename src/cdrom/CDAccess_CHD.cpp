@@ -57,12 +57,12 @@ static const int32_t DI_Size_Table[8] =
   2352  // CD-I RAW
 };
 
-CDAccess_CHD::CDAccess_CHD(const std::string &path, bool image_memcache) : NumTracks(0), total_sectors(0)
+CDAccess_CHD::CDAccess_CHD(VirtualFS* vfs, const std::string &path, bool image_memcache) : NumTracks(0), total_sectors(0)
 {
-  Load(path, image_memcache);
+  Load(vfs, path, image_memcache);
 }
 
-bool CDAccess_CHD::Load(const std::string &path, bool image_memcache)
+bool CDAccess_CHD::Load(VirtualFS* vfs, const std::string &path, bool image_memcache)
 {
   chd_error err = chd_open(path.c_str(), CHD_OPEN_READ, NULL, &chd);
   if (err != CHDERR_NONE)
@@ -138,12 +138,11 @@ bool CDAccess_CHD::Load(const std::string &path, bool image_memcache)
     toc.tracks[NumTracks].control = strcmp(type, "AUDIO") == 0 ? 0 : 4;
     toc.tracks[NumTracks].valid = true;
 
-    Tracks[NumTracks].pregap = (NumTracks == 1) ? 150 : 0;
-    Tracks[NumTracks].pregap_dv = pregap;
+    Tracks[NumTracks].pregap = (NumTracks == 1) ? 150 : (pgtype[0] == 'V') ? 0 : pregap;
+    Tracks[NumTracks].pregap_dv = (pgtype[0] == 'V') ? pregap : 0;
     plba += Tracks[NumTracks].pregap + Tracks[NumTracks].pregap_dv;
     Tracks[NumTracks].LBA = toc.tracks[NumTracks].lba = plba;
     Tracks[NumTracks].postgap = postgap;
-    Tracks[NumTracks].chd_offset = chd_offset;
     Tracks[NumTracks].sectors = frames - Tracks[NumTracks].pregap_dv;
     Tracks[NumTracks].SubchannelMode = 0;
     Tracks[NumTracks].index[0] = -1;
@@ -152,6 +151,12 @@ bool CDAccess_CHD::Load(const std::string &path, bool image_memcache)
       Tracks[NumTracks].index[i] = -1;
 
     toc.tracks[NumTracks].lba = plba;
+
+    chd_offset += Tracks[NumTracks].pregap_dv;
+    Tracks[NumTracks].chd_offset = chd_offset;
+    chd_offset += frames - Tracks[NumTracks].pregap_dv;
+    chd_offset += Tracks[NumTracks].postgap;
+    chd_offset += ((frames + 3) & ~3) - frames;
 
     if (strcmp(type, "AUDIO") == 0)
     {
@@ -172,12 +177,8 @@ bool CDAccess_CHD::Load(const std::string &path, bool image_memcache)
     plba += frames - Tracks[NumTracks].pregap_dv;
     plba += Tracks[NumTracks].postgap;
 
-    // tracks are padded to a 4-frame boundary in chds, calculate the
-    // next track's offset to generate correct block addresses
-    if (frames % CD_TRACK_PADDING > 0)
-      chd_offset += (frames + (CD_TRACK_PADDING - frames % CD_TRACK_PADDING)) - frames;
+    numsectors += (NumTracks == 1) ? frames : frames + Tracks[NumTracks].pregap;
 
-    numsectors += frames;
     toc.first_track = 1;
     toc.last_track = NumTracks;
   }
@@ -210,6 +211,23 @@ bool CDAccess_CHD::Load(const std::string &path, bool image_memcache)
     }
   }
 
+  // prepare sbi file path
+  std::string base_dir, file_base, file_ext;
+  char sbi_ext[4] = { 's', 'b', 'i', 0 };
+
+  vfs->get_file_path_components(path, &base_dir, &file_base, &file_ext);
+
+  if(file_ext.length() == 4 && file_ext[0] == '.')
+  {
+    for(int i = 0; i < 3; i++)
+    {
+      if(file_ext[1 + i] >= 'A' && file_ext[1 + i] <= 'Z')
+        sbi_ext[i] += 'A' - 'a';
+    }
+  }
+
+  LoadSBI(vfs, vfs->eval_fip(base_dir, file_base + "." + sbi_ext, true));
+
   return true;
 }
 
@@ -220,6 +238,72 @@ CDAccess_CHD::~CDAccess_CHD()
 
   if (hunkmem)
     free(hunkmem);
+}
+
+void CDAccess_CHD::Read_CHD_Hunk_RAW(uint8_t *buf, int32_t lba, CHDFILE_TRACK_INFO* track)
+{
+  const chd_header *head = chd_get_header(chd);
+  int cad = lba - track->LBA + track->chd_offset;
+  int sph = head->hunkbytes / (2352 + 96);
+  int hunknum = cad / sph; //(cad * head->unitbytes) / head->hunkbytes;
+  int hunkofs = cad % sph; //(cad * head->unitbytes) % head->hunkbytes;
+  int err = CHDERR_NONE;
+
+  /* each hunk holds ~8 sectors, optimize when reading contiguous sectors */
+  if (hunknum != oldhunk)
+  {
+    err = chd_read(chd, hunknum, hunkmem);
+    if (err != CHDERR_NONE)
+      throw(MDFN_Error(0, "chd_read_sector failed lba=%d error=%d\n", lba, err));
+    else
+      oldhunk = hunknum;
+  }
+
+  memcpy(buf, hunkmem + hunkofs * (2352 + 96), 2352);
+}
+
+void CDAccess_CHD::Read_CHD_Hunk_M1(uint8_t *buf, int32_t lba, CHDFILE_TRACK_INFO* track)
+{
+  const chd_header *head = chd_get_header(chd);
+  int cad = lba - track->LBA + track->chd_offset;
+  int sph = head->hunkbytes / (2352 + 96);
+  int hunknum = cad / sph; //(cad * head->unitbytes) / head->hunkbytes;
+  int hunkofs = cad % sph; //(cad * head->unitbytes) % head->hunkbytes;
+  int err = CHDERR_NONE;
+
+  /* each hunk holds ~8 sectors, optimize when reading contiguous sectors */
+  if (hunknum != oldhunk)
+  {
+    err = chd_read(chd, hunknum, hunkmem);
+    if (err != CHDERR_NONE)
+      throw(MDFN_Error(0, "chd_read_sector failed lba=%d error=%d\n", lba, err));
+    else
+      oldhunk = hunknum;
+  }
+
+  memcpy(buf + 16, hunkmem + hunkofs * (2352 + 96), 2048);
+}
+
+void CDAccess_CHD::Read_CHD_Hunk_M2(uint8_t *buf, int32_t lba, CHDFILE_TRACK_INFO* track)
+{
+  const chd_header *head = chd_get_header(chd);
+  int cad = lba - track->LBA + track->chd_offset;
+  int sph = head->hunkbytes / (2352 + 96);
+  int hunknum = cad / sph; //(cad * head->unitbytes) / head->hunkbytes;
+  int hunkofs = cad % sph; //(cad * head->unitbytes) % head->hunkbytes;
+  int err = CHDERR_NONE;
+
+  /* each hunk holds ~8 sectors, optimize when reading contiguous sectors */
+  if (hunknum != oldhunk)
+  {
+    err = chd_read(chd, hunknum, hunkmem);
+    if (err != CHDERR_NONE)
+      throw(MDFN_Error(0, "chd_read_sector failed lba=%d error=%d\n", lba, err));
+    else
+      oldhunk = hunknum;
+  }
+
+  memcpy(buf + 16, hunkmem + hunkofs * (2352 + 96), 2336);
 }
 
 void CDAccess_CHD::Read_Raw_Sector(uint8_t *buf, int32_t lba)
@@ -303,42 +387,42 @@ void CDAccess_CHD::Read_Raw_Sector(uint8_t *buf, int32_t lba)
   }
   else
   {
-    const chd_header *head = chd_get_header(chd);
-    int cad                = lba + ct->chd_offset;
-    int hunkid             = (cad * CD_FRAME_SIZE) / head->hunkbytes;
-    int hunkofs            = (cad * CD_FRAME_SIZE) % head->hunkbytes;
-    int err                = CHDERR_NONE;
-
-    /* each hunk holds ~8 sectors, optimize when reading contiguous sectors */
-    if (hunkid != oldhunk)
-    {
-      err = chd_read(chd, hunkid, hunkmem);
-      if (err == CHDERR_NONE)
-        oldhunk = hunkid;
-    }
-
-    if (ct->DIFormat == DI_FORMAT_MODE1 || ct->DIFormat == DI_FORMAT_MODE2) {
-        memcpy(buf + 16, hunkmem + hunkofs, DI_Size_Table[ct->DIFormat]);
-    } else {
-        memcpy(buf, hunkmem + hunkofs, DI_Size_Table[ct->DIFormat]);
-    }
-
     switch(ct->DIFormat)
     {
       case DI_FORMAT_AUDIO:
+        Read_CHD_Hunk_RAW(buf, lba, ct);
         if (ct->RawAudioMSBFirst)
           Endian_A16_Swap(buf, 588 * 2);
         break;
 
       case DI_FORMAT_MODE1:
+        Read_CHD_Hunk_M1(buf, lba, ct);
         encode_mode1_sector(lba + 150, buf);
         break;
 
+      case DI_FORMAT_MODE1_RAW:
+      case DI_FORMAT_MODE2_RAW:
+      case DI_FORMAT_CDI_RAW:
+        Read_CHD_Hunk_RAW(buf, lba, ct);
+        break;
+
       case DI_FORMAT_MODE2:
+        Read_CHD_Hunk_M2(buf, lba, ct);
         encode_mode2_sector(lba + 150, buf);
         break;
-    }
 
+      // FIXME: M2F1, M2F2, does sub-header come before or after user data(standards say before, but I wonder
+      // about cdrdao...).
+      case DI_FORMAT_MODE2_FORM1:
+        // ct->fp->read(buf + 24, 2048);
+        //encode_mode2_form1_sector(lba + 150, buf);
+        break;
+
+      case DI_FORMAT_MODE2_FORM2:
+        //ct->fp->read(buf + 24, 2324);
+        //encode_mode2_form2_sector(lba + 150, buf);
+        break;
+    }
   } // end if audible part of audio track read.
 }
 
@@ -469,7 +553,96 @@ bool CDAccess_CHD::Fast_Read_Raw_PW_TSRE(uint8_t *pwbuf, int32_t lba) const noex
 
 void CDAccess_CHD::Read_TOC(CDUtility::TOC *toc)
 {
+  toc->Clear();
+
+  toc->first_track = FirstTrack;
+  toc->last_track = LastTrack;
+  toc->disc_type = DISC_TYPE_CD_XA;   // always?
+
+  // read track info
+  for(int i = 1; i <= NumTracks; i++)
+  {
+    toc->tracks[i].control = Tracks[i].subq_control;
+    toc->tracks[i].adr = ADR_CURPOS;
+    toc->tracks[i].lba = Tracks[i].LBA;
+  }
+
+  toc->tracks[100].lba = total_sectors;
+  toc->tracks[100].adr = ADR_CURPOS;
+  toc->tracks[100].control = toc->tracks[toc->last_track].control & 0x4;
+
+  // Convenience leadout track duplication.
+  if (toc->last_track < 99)
+  {
+    toc->tracks[toc->last_track + 1] = toc->tracks[100];
+  }
+
+  if (!SubQReplaceMap.empty())
+  {
+    SubQReplaceMap.clear();
+  }
+
   *toc = this->toc;
+  MDFN_printf("chd_read_toc: finished\n");
+}
+
+void CDAccess_CHD::LoadSBI(VirtualFS* vfs, const std::string& sbi_path)
+{
+ MDFN_printf(_("Loading SBI file %s...\n"), vfs->get_human_path(sbi_path).c_str());
+ {
+  MDFN_AutoIndent aind(1);
+
+  try
+  {
+   std::unique_ptr<Stream> sbis(vfs->open(sbi_path, VirtualFS::MODE_READ));
+   uint8 header[4];
+   uint8 ed[4 + 10];
+   uint8 tmpq[12];
+
+   sbis->read(header, 4);
+
+   if(memcmp(header, "SBI\0", 4))
+    throw MDFN_Error(0, _("Not recognized a valid SBI file."));
+
+   while(sbis->read(ed, sizeof(ed), false) == sizeof(ed))
+   {
+    if(!BCD_is_valid(ed[0]) || !BCD_is_valid(ed[1]) || !BCD_is_valid(ed[2]))
+     throw MDFN_Error(0, _("Bad BCD MSF offset in SBI file: %02x:%02x:%02x"), ed[0], ed[1], ed[2]);
+
+    if(ed[3] != 0x01)
+     throw MDFN_Error(0, _("Unrecognized boogly oogly in SBI file: %02x"), ed[3]);
+
+    memcpy(tmpq, &ed[4], 10);
+
+    //
+    subq_generate_checksum(tmpq);
+    tmpq[10] ^= 0xFF;
+    tmpq[11] ^= 0xFF;
+    //
+
+    //printf("%02x:%02x:%02x --- ", ed[0], ed[1], ed[2]);
+    //for(unsigned i = 0; i < 12; i++)
+    // printf("%02x ", tmpq[i]);
+    //printf("\n");
+
+    uint32 aba = AMSF_to_ABA(BCD_to_U8(ed[0]), BCD_to_U8(ed[1]), BCD_to_U8(ed[2]));
+
+    memcpy(SubQReplaceMap[aba].data(), tmpq, 12);
+   }
+   MDFN_printf(_("Loaded Q subchannel replacements for %zu sectors.\n"), SubQReplaceMap.size());
+  }
+  catch(MDFN_Error &e)
+  {
+   if(e.GetErrno() != ENOENT)
+    throw;
+   else
+    MDFN_printf(_("Error: %s\n"), e.what());
+  }
+  catch(std::exception &e)
+  {
+   throw;
+  }
+ }
 }
 
 }
