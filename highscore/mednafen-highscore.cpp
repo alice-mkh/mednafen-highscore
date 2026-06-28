@@ -998,6 +998,12 @@ mednafen_core_reset (HsCore *core, gboolean hard, GError **error)
 {
   MednafenCore *self = MEDNAFEN_CORE (core);
 
+  if (hard) {
+    Mednafen::MDFNI_Power ();
+    self->colorburst_phase = 0;
+    return TRUE;
+  }
+
   // Saturn has a reset button instead of implementing the usual reset function
   // This button has to be held for a few frames before releasing
   if (hs_core_get_platform (core) == HS_PLATFORM_SEGA_SATURN) {
