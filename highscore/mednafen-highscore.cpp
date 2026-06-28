@@ -1079,12 +1079,16 @@ mednafen_core_load_state (HsCore          *core,
                           const char      *path,
                           HsStateCallback  callback)
 {
+  MednafenCore *self = MEDNAFEN_CORE (core);
+
   if (!Mednafen::MDFNI_LoadState (path, "")) {
     GError *error = NULL;
     g_set_error (&error, HS_CORE_ERROR, HS_CORE_ERROR_INTERNAL, "Failed to load state");
     callback (core, &error);
     return;
   }
+
+  self->colorburst_phase = hs_core_get_colorburst_phase (core);
 
   callback (core, NULL);
 }
