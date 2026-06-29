@@ -949,7 +949,7 @@ mednafen_core_run_frame (HsCore *core)
       gboolean blur = (cr & (1 << 2)) > 0;
 
       if (strip_colorburst)
-        hs_software_context_set_colorburst_phase (self->context, -1);
+        hs_software_context_set_colorburst_phase (self->context, self->colorburst_phase - 2);
       else
         hs_software_context_set_colorburst_phase (self->context, self->colorburst_phase);
 
@@ -1098,6 +1098,10 @@ mednafen_core_load_state (HsCore          *core,
   }
 
   self->colorburst_phase = hs_core_get_colorburst_phase (core);
+
+  // With colorkill on, the phase will alternate between [-2:-1] instead of [0:1], normalize it
+  if (self->colorburst_phase < 0)
+    self->colorburst_phase += 2;
 
   callback (core, NULL);
 }
