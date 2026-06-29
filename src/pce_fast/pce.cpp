@@ -556,8 +556,6 @@ static void Emulate(EmulateSpecStruct *espec)
 
  if(IsHES && !espec->skip)
   HES_Draw(espec->surface, &espec->DisplayRect, espec->SoundBuf, espec->SoundBufSize);
-
- MDFNI_SetSettingUI("pce_fast.vce_cr", vce.CR);
 }
 
 static void StateAction(StateMem *sm, const unsigned load, const bool data_only)
@@ -656,9 +654,6 @@ static const MDFNSetting PCESettings[] =
   { "pce_fast.cdpsgvolume", MDFNSF_NOFLAGS, gettext_noop("PSG volume when playing a CD game."), NULL, MDFNST_UINT, "100", "0", "200" },
   { "pce_fast.cddavolume", MDFNSF_NOFLAGS, gettext_noop("CD-DA volume."), NULL, MDFNST_UINT, "100", "0", "200" },
   { "pce_fast.adpcmvolume", MDFNSF_NOFLAGS, gettext_noop("ADPCM volume."), NULL, MDFNST_UINT, "100", "0", "200" },
-
-  { "pce_fast.vce_cr", MDFNSF_SUPPRESS_DOC | MDFNSF_NONPERSISTENT, "HUC6260 CR register.", NULL, MDFNST_UINT, "0", "0", "256"},
-
   { NULL }
 };
 

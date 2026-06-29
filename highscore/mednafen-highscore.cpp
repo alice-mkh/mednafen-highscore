@@ -3,6 +3,9 @@
 
 #include "mednafen-highscore.h"
 
+#include <mednafen/pce_fast/pce.h>
+#include <mednafen/pce_fast/vdc.h>
+
 #define SOUND_BUFFER_SIZE 0x10000
 #define SAMPLE_RATE 44100
 
@@ -940,7 +943,7 @@ mednafen_core_run_frame (HsCore *core)
 
     if (base_platform == HS_PLATFORM_PC_ENGINE) {
       // https://datacrystal.tcrf.net/wiki/VDC_Programmers_Reference_(Turbo-Grafx_16)#$0400_-_CR_-_Control_Register
-      uint32 cr = Mednafen::MDFN_GetSettingUI ("pce_fast.vce_cr");
+      uint32 cr = vce.CR;
 
       gboolean strip_colorburst = (cr & (1 << 7)) > 0;
       gboolean blur = (cr & (1 << 2)) > 0;
