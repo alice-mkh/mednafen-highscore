@@ -187,6 +187,30 @@ setup_controllers (MednafenCore *self)
 }
 
 static gboolean
+reload_game (MednafenCore *self, GError **error)
+{
+  HsPlatform platform = hs_core_get_platform (HS_CORE (self));
+  g_autofree char *system_name = g_strdup (self->game->shortname);
+
+  Mednafen::MDFNI_CloseGame ();
+  self->game = Mednafen::MDFNI_LoadGame (system_name, &::Mednafen::NVFS, self->rom_path);
+  if (!self->game) {
+    g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_INTERNAL, "Failed to load game");
+    return FALSE;
+  }
+
+  setup_controllers (self);
+
+  if (platform == HS_PLATFORM_PC_ENGINE_CD ||
+      platform == HS_PLATFORM_PLAYSTATION ||
+      platform == HS_PLATFORM_SEGA_SATURN) {
+    Mednafen::MDFNI_SetMedia (0, 2, self->current_disc, 0);
+  }
+
+  return TRUE;
+}
+
+static gboolean
 try_migrate_libretro_save (MednafenCore  *self,
                            const char    *save_path,
                            GError       **error)
@@ -1047,28 +1071,11 @@ mednafen_core_reload_save (HsCore      *core,
                            GError    **error)
 {
   MednafenCore *self = MEDNAFEN_CORE (core);
-  HsPlatform platform = hs_core_get_platform (core);
 
   if (!set_save_path (self, save_path, error))
     return FALSE;
 
-  g_autofree char *system_name = g_strdup (self->game->shortname);
-  Mednafen::MDFNI_CloseGame ();
-  self->game = Mednafen::MDFNI_LoadGame (system_name, &::Mednafen::NVFS, self->rom_path);
-  if (!self->game) {
-    g_set_error (error, HS_CORE_ERROR, HS_CORE_ERROR_INTERNAL, "Failed to load game");
-    return FALSE;
-  }
-
-  setup_controllers (self);
-
-  if (platform == HS_PLATFORM_PC_ENGINE_CD ||
-      platform == HS_PLATFORM_PLAYSTATION ||
-      platform == HS_PLATFORM_SEGA_SATURN) {
-    Mednafen::MDFNI_SetMedia (0, 2, self->current_disc, 0);
-  }
-
-  return TRUE;
+  return reload_game (self, error);
 }
 
 static gboolean
