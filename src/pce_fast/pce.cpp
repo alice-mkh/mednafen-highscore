@@ -258,6 +258,7 @@ static MDFN_COLD void Load(GameFile* gf)
 
    crc = HuC_Load(gf->stream);
 
+#ifndef __HIGHSCORE__
    if(gf->ext == "sgx")
     IsSGX = true;
    else
@@ -272,6 +273,7 @@ static MDFN_COLD void Load(GameFile* gf)
      }
     }
    }
+#endif
   }
 
   LoadCommon();
