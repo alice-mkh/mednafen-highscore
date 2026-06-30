@@ -36,6 +36,8 @@ struct _MednafenCore
   int ss_reset_counter;
   HsSegaSaturnController ss_controller_type[12];
 
+  gboolean pce_use_sgx;
+
   int colorburst_phase;
 
   int top_overscan_n;
@@ -191,7 +193,6 @@ reload_game (MednafenCore *self, GError **error)
 {
   HsPlatform platform = hs_core_get_platform (HS_CORE (self));
   g_autofree char *system_name = g_strdup (self->game->shortname);
-
   Mednafen::MDFNI_CloseGame ();
   self->game = Mednafen::MDFNI_LoadGame (system_name, &::Mednafen::NVFS, self->rom_path);
   if (!self->game) {
@@ -399,6 +400,7 @@ mednafen_core_load_rom (HsCore      *core,
   if (base_platform == HS_PLATFORM_PC_ENGINE) {
     Mednafen::MDFNI_SetSetting ("pce_fast.slstart", "0");
     Mednafen::MDFNI_SetSetting ("pce_fast.slend", "239");
+    Mednafen::MDFNI_SetSetting ("pce_fast.forcesgx", self->pce_use_sgx ? "1" : "0");
 
     self->top_overscan_n = 4;
     self->bottom_overscan_n = 4;
@@ -1026,6 +1028,23 @@ mednafen_core_reset (HsCore *core, gboolean hard, GError **error)
   MednafenCore *self = MEDNAFEN_CORE (core);
 
   if (hard) {
+    HsPlatform platform = hs_core_get_platform (core);
+    HsPlatform base_platform = hs_platform_get_base_platform (platform);
+
+    if (base_platform == HS_PLATFORM_PC_ENGINE) {
+      gboolean was_sgx = Mednafen::MDFN_GetSettingB ("pce_fast.forcesgx");
+
+      if (self->pce_use_sgx != was_sgx) {
+        Mednafen::MDFNI_SetSetting ("pce_fast.forcesgx", self->pce_use_sgx ? "1" : "0");
+
+        if (!reload_game (self, error))
+          return FALSE;
+
+        self->colorburst_phase = 0;
+        return TRUE;
+      }
+    }
+
     Mednafen::MDFNI_Power ();
     self->colorburst_phase = 0;
     return TRUE;
@@ -1096,6 +1115,23 @@ mednafen_core_load_state (HsCore          *core,
                           HsStateCallback  callback)
 {
   MednafenCore *self = MEDNAFEN_CORE (core);
+  HsPlatform platform = hs_core_get_platform (core);
+  HsPlatform base_platform = hs_platform_get_base_platform (platform);
+
+  if (base_platform == HS_PLATFORM_PC_ENGINE) {
+    gboolean was_sgx = Mednafen::MDFN_GetSettingB ("pce_fast.forcesgx");
+
+    if (self->pce_use_sgx != was_sgx) {
+      GError *error = NULL;
+
+      Mednafen::MDFNI_SetSetting ("pce_fast.forcesgx", self->pce_use_sgx ? "1" : "0");
+
+      if (!reload_game (self, &error)) {
+        callback (core, &error);
+        return;
+      }
+    }
+  }
 
   if (!Mednafen::MDFNI_LoadState (path, "")) {
     GError *error = NULL;
@@ -1314,9 +1350,18 @@ mednafen_neo_geo_pocket_color_core_init (HsNeoGeoPocketColorCoreInterface *iface
 {
 }
 
+void
+mednafen_pc_engine_core_set_enable_supergrafx (HsPcEngineCore *core, gboolean enable_supergrafx)
+{
+  MednafenCore *self = MEDNAFEN_CORE (core);
+
+  self->pce_use_sgx = enable_supergrafx;
+}
+
 static void
 mednafen_pc_engine_core_init (HsPcEngineCoreInterface *iface)
 {
+  iface->set_enable_supergrafx = mednafen_pc_engine_core_set_enable_supergrafx;
 }
 
 static void
