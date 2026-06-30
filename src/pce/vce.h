@@ -202,6 +202,12 @@ class VCE final
 
 	void SetCDEvent(const int32 cycles);
 
+	#ifdef __HIGHSCORE__
+	INLINE uint8 GetVCECR() {
+		return CR;
+	}
+	#endif
+
 	//
 	//
 	//

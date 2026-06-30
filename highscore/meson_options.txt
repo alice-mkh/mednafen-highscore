@@ -1,1 +1,3 @@
 option ('core_install_dir', type: 'string')
+
+option ('pce_fast', type: 'boolean', value: false)

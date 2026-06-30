@@ -3,8 +3,14 @@
 
 #include "mednafen-highscore.h"
 
-#include <mednafen/pce_fast/pce.h>
-#include <mednafen/pce_fast/vdc.h>
+#ifdef WANT_PCE_FAST_EMU
+# include <mednafen/pce_fast/pce.h>
+# include <mednafen/pce_fast/vdc.h>
+# define PCE_EMU "pce_fast"
+#else
+# include <mednafen/pce/pce.h>
+# define PCE_EMU "pce"
+#endif
 
 #define SOUND_BUFFER_SIZE 0x10000
 #define SAMPLE_RATE 44100
@@ -398,9 +404,9 @@ mednafen_core_load_rom (HsCore      *core,
   }
 
   if (base_platform == HS_PLATFORM_PC_ENGINE) {
-    Mednafen::MDFNI_SetSetting ("pce_fast.slstart", "0");
-    Mednafen::MDFNI_SetSetting ("pce_fast.slend", "239");
-    Mednafen::MDFNI_SetSetting ("pce_fast.forcesgx", self->pce_use_sgx ? "1" : "0");
+    Mednafen::MDFNI_SetSetting (PCE_EMU ".slstart", "0");
+    Mednafen::MDFNI_SetSetting (PCE_EMU ".slend", "239");
+    Mednafen::MDFNI_SetSetting (PCE_EMU ".forcesgx", self->pce_use_sgx ? "1" : "0");
 
     self->top_overscan_n = 4;
     self->bottom_overscan_n = 4;
@@ -417,7 +423,7 @@ mednafen_core_load_rom (HsCore      *core,
       return FALSE;
     }
 
-    Mednafen::MDFNI_SetSetting ("pce_fast.cdbios", bios_path);
+    Mednafen::MDFNI_SetSetting (PCE_EMU ".cdbios", bios_path);
   }
 
   if (platform == HS_PLATFORM_PLAYSTATION) {
@@ -498,7 +504,7 @@ mednafen_core_load_rom (HsCore      *core,
     platform_name = "ngp";
     break;
   case HS_PLATFORM_PC_ENGINE:
-    platform_name = "pce_fast";
+    platform_name = PCE_EMU;
     break;
   case HS_PLATFORM_PLAYSTATION:
     platform_name = "psx";
@@ -969,7 +975,11 @@ mednafen_core_run_frame (HsCore *core)
 
     if (base_platform == HS_PLATFORM_PC_ENGINE) {
       // https://datacrystal.tcrf.net/wiki/VDC_Programmers_Reference_(Turbo-Grafx_16)#$0400_-_CR_-_Control_Register
+#ifdef WANT_PCE_FAST_EMU
       uint32 cr = vce.CR;
+#else
+      uint32 cr = MDFN_IEN_PCE::PCE_GetVCECR();
+#endif
 
       gboolean strip_colorburst = (cr & (1 << 7)) > 0;
       gboolean blur = (cr & (1 << 2)) > 0;
@@ -1032,10 +1042,10 @@ mednafen_core_reset (HsCore *core, gboolean hard, GError **error)
     HsPlatform base_platform = hs_platform_get_base_platform (platform);
 
     if (base_platform == HS_PLATFORM_PC_ENGINE) {
-      gboolean was_sgx = Mednafen::MDFN_GetSettingB ("pce_fast.forcesgx");
+      gboolean was_sgx = Mednafen::MDFN_GetSettingB (PCE_EMU ".forcesgx");
 
       if (self->pce_use_sgx != was_sgx) {
-        Mednafen::MDFNI_SetSetting ("pce_fast.forcesgx", self->pce_use_sgx ? "1" : "0");
+        Mednafen::MDFNI_SetSetting (PCE_EMU ".forcesgx", self->pce_use_sgx ? "1" : "0");
 
         if (!reload_game (self, error))
           return FALSE;
@@ -1119,12 +1129,12 @@ mednafen_core_load_state (HsCore          *core,
   HsPlatform base_platform = hs_platform_get_base_platform (platform);
 
   if (base_platform == HS_PLATFORM_PC_ENGINE) {
-    gboolean was_sgx = Mednafen::MDFN_GetSettingB ("pce_fast.forcesgx");
+    gboolean was_sgx = Mednafen::MDFN_GetSettingB (PCE_EMU ".forcesgx");
 
     if (self->pce_use_sgx != was_sgx) {
       GError *error = NULL;
 
-      Mednafen::MDFNI_SetSetting ("pce_fast.forcesgx", self->pce_use_sgx ? "1" : "0");
+      Mednafen::MDFNI_SetSetting (PCE_EMU ".forcesgx", self->pce_use_sgx ? "1" : "0");
 
       if (!reload_game (self, &error)) {
         callback (core, &error);

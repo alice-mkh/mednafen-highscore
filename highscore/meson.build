@@ -90,6 +90,7 @@ mednafen_source = [
   '../src/cdrom/l-ec.cpp',
   '../src/cdrom/lec.cpp',
   '../src/cdrom/recover-raw.cpp',
+  '../src/cdrom/scsicd.cpp',
   '../src/cheat_formats/psx.cpp',
   '../src/compress/ArchiveReader.cpp',
   '../src/compress/DecompressFilter.cpp',
@@ -199,16 +200,6 @@ mednafen_source = [
   '../src/ngp/sound.cpp',
   '../src/ngp/T6W28_Apu.cpp',
   '../src/ngp/Z80_interface.cpp',
-
-  '../src/pce_fast/hes.cpp',
-  '../src/pce_fast/huc6280.cpp',
-  '../src/pce_fast/huc.cpp',
-  '../src/pce_fast/input.cpp',
-  '../src/pce_fast/pcecd.cpp',
-  '../src/pce_fast/pcecd_drive.cpp',
-  '../src/pce_fast/pce.cpp',
-  '../src/pce_fast/psg.cpp',
-  '../src/pce_fast/vdc.cpp',
 
   '../src/psx/input/dualanalog.cpp',
   '../src/psx/input/dualshock.cpp',
@@ -327,7 +318,6 @@ mednafen_c_cpp_args = [
   '-DWANT_68K_EMU=1',
   '-DWANT_LYNX_EMU=1',
   '-DWANT_NGP_EMU=1',
-  '-DWANT_PCE_FAST_EMU=1',
   '-DWANT_PSX_EMU=1',
   '-DWANT_SS_EMU=1',
   '-DWANT_VB_EMU=1',
@@ -343,6 +333,40 @@ mednafen_c_cpp_args = [
   '-DSIZEOF_VOID_P=@0@'.format(cc.sizeof('void*')),
   '-D__HIGHSCORE__',
 ]
+
+if get_option('pce_fast')
+  mednafen_c_cpp_args += '-DWANT_PCE_FAST_EMU=1'
+  mednafen_source += [
+    '../src/pce_fast/hes.cpp',
+    '../src/pce_fast/huc6280.cpp',
+    '../src/pce_fast/huc.cpp',
+    '../src/pce_fast/input.cpp',
+    '../src/pce_fast/pcecd.cpp',
+    '../src/pce_fast/pcecd_drive.cpp',
+    '../src/pce_fast/pce.cpp',
+    '../src/pce_fast/psg.cpp',
+    '../src/pce_fast/vdc.cpp'
+  ]
+else
+  mednafen_c_cpp_args += '-DWANT_PCE_EMU=1'
+  mednafen_source += [
+    '../src/hw_sound/pce_psg/pce_psg.cpp',
+    '../src/hw_video/huc6270/vdc.cpp',
+    '../src/pce/input/gamepad.cpp',
+    '../src/pce/input/mouse.cpp',
+    '../src/pce/input/tsushinkb.cpp',
+    '../src/pce/dis6280.cpp',
+    '../src/pce/hes.cpp',
+    '../src/pce/huc6280.cpp',
+    '../src/pce/huc.cpp',
+    '../src/pce/input.cpp',
+    '../src/pce/mcgenjin.cpp',
+    '../src/pce/pcecd.cpp',
+    '../src/pce/pce.cpp',
+    '../src/pce/tsushin.cpp',
+    '../src/pce/vce.cpp',
+  ]
+endif
 
 mednafen_function_checks = {
   'HAVE_ACCEPT': 'accept',

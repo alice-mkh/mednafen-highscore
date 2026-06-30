@@ -30,6 +30,9 @@ void PCE_Power(void);
 uint8 PCE_PeekMainRAM(uint32 A);
 void PCE_PokeMainRAM(uint32 A, uint8 V);
 
+#ifdef __HIGHSCORE__
+MDFN_HIDE extern uint8 PCE_GetVCECR();
+#endif
 };
 
 #endif

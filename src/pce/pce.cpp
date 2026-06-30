@@ -736,9 +736,14 @@ static MDFN_COLD void Cleanup(void)
  }
 }
 
-static MDFN_COLD void CloseGame(void)
+static void SyncSave(void)
 {
  HuC_SaveNV();
+}
+
+static MDFN_COLD void CloseGame(void)
+{
+ SyncSave();
  Cleanup();
 }
 
@@ -1203,6 +1208,12 @@ static const CheatInfoStruct CheatInfo =
  CheatFormatInfo_Empty
 };
 
+#ifdef __HIGHSCORE__
+uint8 PCE_GetVCECR() {
+  return vce->GetVCECR();
+}
+#endif
+
 };
 
 using namespace MDFN_IEN_PCE;
@@ -1224,6 +1235,7 @@ MDFN_HIDE extern const MDFNGI EmulatedPCE =
  TestMagic,
  LoadCD,
  TestMagicCD,
+ SyncSave,
  CloseGame,
 
  SetLayerEnableMask,
