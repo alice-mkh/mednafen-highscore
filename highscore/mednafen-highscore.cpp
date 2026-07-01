@@ -38,7 +38,7 @@ struct _MednafenCore
 
   gboolean pce_use_sgx;
 
-  int colorburst_phase;
+  float colorburst_offset;
 
   int top_overscan_n;
   int bottom_overscan_n;
@@ -974,20 +974,45 @@ mednafen_core_run_frame (HsCore *core)
       gboolean strip_colorburst = (cr & (1 << 7)) > 0;
       gboolean blur = (cr & (1 << 2)) > 0;
 
+      float w = width;
+
+      // 341 is really 341⅓
+      if (width == 341)
+        w = 341 + 1.0 / 3.0;
+
+      float cycle_length = w * 3.0 / 512.0;
+
       if (strip_colorburst)
-        hs_software_context_set_colorburst_phase (self->context, self->colorburst_phase - 2);
-      else
-        hs_software_context_set_colorburst_phase (self->context, self->colorburst_phase);
+        cycle_length = -1;
 
-      if (blur)
-        self->colorburst_phase ^= 1;
+      hs_software_context_set_colorburst (self->context, cycle_length, 0.5, 0.25 + self->colorburst_offset);
+
+      if (blur && mode != HS_INTERLACING_ODD_FIELD) {
+        self->colorburst_offset += 0.5;
+
+        if (self->colorburst_offset > 0.9)
+          self->colorburst_offset = 0;
+      }
     } else {
-      hs_software_context_set_colorburst_phase (self->context, self->colorburst_phase);
+      if (hs_core_get_region (core) == HS_REGION_PAL) {
+        hs_software_context_set_colorburst (self->context, width * 3.0 / 640.0, 0.25, self->colorburst_offset);
 
-      if (hs_core_get_region (core) == HS_REGION_PAL)
-        self->colorburst_phase = (self->colorburst_phase + 1) % 4;
-      else if (mode != HS_INTERLACING_ODD_FIELD)
-        self->colorburst_phase ^= 1;
+        if (mode != HS_INTERLACING_ODD_FIELD) {
+          self->colorburst_offset += 0.25;
+
+          if (self->colorburst_offset > 0.9)
+            self->colorburst_offset = 0.0;
+        }
+      } else {
+        hs_software_context_set_colorburst (self->context, width * 3.0 / 512.0, 0.5, self->colorburst_offset);
+
+        if (mode != HS_INTERLACING_ODD_FIELD) {
+          self->colorburst_offset += 0.5;
+
+          if (self->colorburst_offset > 0.9)
+            self->colorburst_offset = 0.0;
+        }
+      }
     }
   }
 
@@ -1040,13 +1065,13 @@ mednafen_core_reset (HsCore *core, gboolean hard, GError **error)
         if (!reload_game (self, error))
           return FALSE;
 
-        self->colorburst_phase = 0;
+        self->colorburst_offset = 0;
         return TRUE;
       }
     }
 
     Mednafen::MDFNI_Power ();
-    self->colorburst_phase = 0;
+    self->colorburst_offset = 0;
     return TRUE;
   }
 
@@ -1140,11 +1165,10 @@ mednafen_core_load_state (HsCore          *core,
     return;
   }
 
-  self->colorburst_phase = hs_core_get_colorburst_phase (core);
+  self->colorburst_offset = hs_core_get_colorburst_offset (core);
 
-  // With colorkill on, the phase will alternate between [-2:-1] instead of [0:1], normalize it
-  if (self->colorburst_phase < 0)
-    self->colorburst_phase += 2;
+  if (base_platform == HS_PLATFORM_PC_ENGINE)
+    self->colorburst_offset = (self->colorburst_offset > 0.5) ? 0.5 : 0;
 
   callback (core, NULL);
 }
