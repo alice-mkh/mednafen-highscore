@@ -380,7 +380,7 @@ mednafen_core_load_rom (HsCore      *core,
   }
 
   Mednafen::MDFNI_SetSetting ("filesys.path_sav", "");
-  Mednafen::MDFNI_SetSetting ("video.deinterlacer", "weave");
+  Mednafen::MDFNI_SetSetting ("video.deinterlacer", "bob");
 
   if (!set_save_path (self, save_path, error))
     return FALSE;
@@ -943,10 +943,12 @@ mednafen_core_run_frame (HsCore *core)
 
   hs_software_context_release_framebuffer (self->context);
 
-  HsRectangle rect = { spec.DisplayRect.x, spec.DisplayRect.y, width, spec.DisplayRect.h };
+  int stride_multiplier = spec.InterlaceOn ? 2 : 1;
+
+  HsRectangle rect = { spec.DisplayRect.x, spec.DisplayRect.y, width, spec.DisplayRect.h / stride_multiplier };
   hs_software_context_set_area (self->context, &rect);
 
-  hs_software_context_set_row_stride (self->context, stride);
+  hs_software_context_set_row_stride (self->context, stride * stride_multiplier);
 
   if (base_platform == HS_PLATFORM_PLAYSTATION ||
       base_platform == HS_PLATFORM_SEGA_SATURN ||
