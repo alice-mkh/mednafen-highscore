@@ -6,6 +6,8 @@ Module=mednafen-highscore.so
 Authors=Mednafen Team;
 Copyright=Copyright (C) 2005-2022 Mednafen Team;
 Website=https://mednafen.github.io/
+SourceCode=https://github.com/highscore-emu/mednafen-highscore
+Issues=https://github.com/highscore-emu/mednafen-highscore/issues
 License=GPL-2.0-or-later
 Platforms=AtariLynx;NeoGeoPocket;NeoGeoPocketColor;PcEngine;PcEngineCD;PlayStation;SegaSaturn;VirtualBoy;WonderSwan;WonderSwanColor;
 
