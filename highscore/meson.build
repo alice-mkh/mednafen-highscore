@@ -19,10 +19,13 @@ add_project_arguments([
 add_project_arguments([
   '-Wno-address',
   '-Wno-array-bounds',
+  '-Wno-deprecated-enum-enum-conversion',
   '-Wno-format-overflow',
   '-Wno-implicit-fallthrough',
+  '-Wno-maybe-uninitialized',
   '-Wno-missing-field-initializers',
   '-Wno-stringop-truncation',
+  '-Wno-volatile',
   '-Wno-unused-but-set-variable',
   '-Wno-unused-parameter',
   '-Wno-unused-result',
